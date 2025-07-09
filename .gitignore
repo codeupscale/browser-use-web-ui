@@ -189,4 +189,5 @@ data/
 .config.pkl
 *.pdf
 
-workflow
+workflow.env
+.venv/
