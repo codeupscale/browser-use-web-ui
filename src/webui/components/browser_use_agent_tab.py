@@ -21,7 +21,7 @@ import gradio as gr
 import re
 
 
-# from browser_use.agent.service import Agent
+from browser_use.agent.service import Agent
 from browser_use.agent.views import (
     AgentHistoryList,
     AgentOutput,
@@ -120,181 +120,181 @@ async def _initialize_llm(
 #         return default
 
 
-def _format_agent_output(model_output: AgentOutput) -> str:
-    """Formats AgentOutput for display in the chatbot using JSON."""
-    content = ""
-    if model_output:
-        try:
-            # Directly use model_dump if actions and current_state are Pydantic models
-            action_dump = [
-                action.model_dump(exclude_none=True) for action in model_output.action
-            ]
+# def _format_agent_output(model_output: AgentOutput) -> str:
+#     """Formats AgentOutput for display in the chatbot using JSON."""
+#     content = ""
+#     if model_output:
+#         try:
+#             # Directly use model_dump if actions and current_state are Pydantic models
+#             action_dump = [
+#                 action.model_dump(exclude_none=True) for action in model_output.action
+#             ]
 
-            state_dump = model_output.current_state.model_dump(exclude_none=True)
-            model_output_dump = {
-                "current_state": state_dump,
-                "action": action_dump,
-            }
-            # Dump to JSON string with indentation
-            json_string = json.dumps(model_output_dump, indent=4, ensure_ascii=False)
-            # Wrap in <pre><code> for proper display in HTML
-            content = f"<pre><code class='language-json'>{json_string}</code></pre>"
+#             state_dump = model_output.current_state.model_dump(exclude_none=True)
+#             model_output_dump = {
+#                 "current_state": state_dump,
+#                 "action": action_dump,
+#             }
+#             # Dump to JSON string with indentation
+#             json_string = json.dumps(model_output_dump, indent=4, ensure_ascii=False)
+#             # Wrap in <pre><code> for proper display in HTML
+#             content = f"<pre><code class='language-json'>{json_string}</code></pre>"
 
-        except AttributeError as ae:
-            logger.error(
-                f"AttributeError during model dump: {ae}. Check if 'action' or 'current_state' or their items support 'model_dump'."
-            )
-            content = f"<pre><code>Error: Could not format agent output (AttributeError: {ae}).\nRaw output: {str(model_output)}</code></pre>"
-        except Exception as e:
-            logger.error(f"Error formatting agent output: {e}", exc_info=True)
-            # Fallback to simple string representation on error
-            content = f"<pre><code>Error formatting agent output.\nRaw output:\n{str(model_output)}</code></pre>"
+#         except AttributeError as ae:
+#             logger.error(
+#                 f"AttributeError during model dump: {ae}. Check if 'action' or 'current_state' or their items support 'model_dump'."
+#             )
+#             content = f"<pre><code>Error: Could not format agent output (AttributeError: {ae}).\nRaw output: {str(model_output)}</code></pre>"
+#         except Exception as e:
+#             logger.error(f"Error formatting agent output: {e}", exc_info=True)
+#             # Fallback to simple string representation on error
+#             content = f"<pre><code>Error formatting agent output.\nRaw output:\n{str(model_output)}</code></pre>"
 
-    return content.strip()
+#     return content.strip()
 
 
 # --- Updated Callback Implementation ---
 
 
-async def _handle_new_step(
-        webui_manager: WebuiManager, state: BrowserState, output: AgentOutput, step_num: int
-):
-    """Callback for each step taken by the agent, including screenshot display."""
+# async def _handle_new_step(
+#         webui_manager: WebuiManager, state: BrowserState, output: AgentOutput, step_num: int
+# ):
+#     """Callback for each step taken by the agent, including screenshot display."""
 
-    # print("\n\n\n\n\n HANDLE NEW STEP CALLED\n\n\n\n\n")
+#     # print("\n\n\n\n\n HANDLE NEW STEP CALLED\n\n\n\n\n")
 
-    # Use the correct chat history attribute name from the user's code
-    if not hasattr(webui_manager, "bu_chat_history"):
-        logger.error(
-            "Attribute 'bu_chat_history' not found in webui_manager! Cannot add chat message."
-        )
-        # Initialize it maybe? Or raise an error? For now, log and potentially skip chat update.
-        webui_manager.bu_chat_history = []  # Initialize if missing (consider if this is the right place)
-        # return # Or stop if this is critical
-    step_num -= 1
-    logger.info(f"Step {step_num} completed.")
+#     # Use the correct chat history attribute name from the user's code
+#     if not hasattr(webui_manager, "bu_chat_history"):
+#         logger.error(
+#             "Attribute 'bu_chat_history' not found in webui_manager! Cannot add chat message."
+#         )
+#         # Initialize it maybe? Or raise an error? For now, log and potentially skip chat update.
+#         webui_manager.bu_chat_history = []  # Initialize if missing (consider if this is the right place)
+#         # return # Or stop if this is critical
+#     step_num -= 1
+#     logger.info(f"Step {step_num} completed.")
 
-    #get the current directory
-    #and create a new directory according to the step number
-    current_dir = os.path.dirname(__file__)
-    # output_data_dir = os.path.join(current_dir, "..", "..", "src", "outputdata", "step_" + str(step_num))
-    #output_data_dir = os.path.join(current_dir, "..", "..", "outputdata", "step_" + str(step_num))
-    output_data_dir = "./outputdata"
+#     #get the current directory
+#     #and create a new directory according to the step number
+#     current_dir = os.path.dirname(__file__)
+#     # output_data_dir = os.path.join(current_dir, "..", "..", "src", "outputdata", "step_" + str(step_num))
+#     #output_data_dir = os.path.join(current_dir, "..", "..", "outputdata", "step_" + str(step_num))
+#     output_data_dir = "./outputdata"
 
-    os.makedirs(output_data_dir, exist_ok=True)
+#     os.makedirs(output_data_dir, exist_ok=True)
 
-    # --- Screenshot Handling ---
-    screenshot_html = ""
-    # Ensure state.screenshot exists and is not empty before proceeding
-    # Use getattr for safer access
-    screenshot_data = getattr(state, "screenshot", None)
-    # print("\n\n\n\n\n SCREENSHOT DATA: ", screenshot_data, "\n\n\n\n\n")
-    if screenshot_data:
-        try:
-            # Basic validation: check if it looks like base64
-            if (
-                    isinstance(screenshot_data, str) and len(screenshot_data) > 100
-            ):  
-                # Decode the base64 string
-                #image_to_save_locally = screenshot_data = base64.b64decode(screenshot_data)      # change this line of code bc here screenshot_data value is override
-                image_to_save_locally = base64.b64decode(screenshot_data)
+#     # --- Screenshot Handling ---
+#     screenshot_html = ""
+#     # Ensure state.screenshot exists and is not empty before proceeding
+#     # Use getattr for safer access
+#     screenshot_data = getattr(state, "screenshot", None)
+#     # print("\n\n\n\n\n SCREENSHOT DATA: ", screenshot_data, "\n\n\n\n\n")
+#     if screenshot_data:
+#         try:
+#             # Basic validation: check if it looks like base64
+#             if (
+#                     isinstance(screenshot_data, str) and len(screenshot_data) > 100
+#             ):  
+#                 # Decode the base64 string
+#                 #image_to_save_locally = screenshot_data = base64.b64decode(screenshot_data)      # change this line of code bc here screenshot_data value is override
+#                 image_to_save_locally = base64.b64decode(screenshot_data)
 
-                #saving the image in the output data directory
-                image_path = os.path.join(output_data_dir, "output_image.png")
-                try:
-                    logger.info(f"Saving image to {image_path}")
-                    with open(image_path, "wb") as f:
-                        f.write(image_to_save_locally)
-                    logger.info(f"\n IMAGE SAVED TO PATH: {image_path}")
-                except Exception as e:
-                    logger.error(f"Error saving image: {e}")                
+#                 #saving the image in the output data directory
+#                 image_path = os.path.join(output_data_dir, "output_image.png")
+#                 try:
+#                     logger.info(f"Saving image to {image_path}")
+#                     with open(image_path, "wb") as f:
+#                         f.write(image_to_save_locally)
+#                     logger.info(f"\n IMAGE SAVED TO PATH: {image_path}")
+#                 except Exception as e:
+#                     logger.error(f"Error saving image: {e}")                
                 
-                # Arbitrary length check
-                # *** UPDATED STYLE: Removed centering, adjusted width ***
-                img_tag = f'<img src="data:image/jpeg;base64,{image_to_save_locally}" alt="Step {step_num} Screenshot" style="max-width: 800px; max-height: 600px; object-fit:contain;" />'
-                screenshot_html = (
-                        img_tag + "<br/>"
-                )  # Use <br/> for line break after inline-block image
-            else:
-                logger.warning(
-                    f"Screenshot for step {step_num} seems invalid (type: {type(screenshot_data)}, len: {len(screenshot_data) if isinstance(screenshot_data, str) else 'N/A'})."
-                )
-                screenshot_html = "**[Invalid screenshot data]**<br/>"
+#                 # Arbitrary length check
+#                 # *** UPDATED STYLE: Removed centering, adjusted width ***
+#                 img_tag = f'<img src="data:image/jpeg;base64,{image_to_save_locally}" alt="Step {step_num} Screenshot" style="max-width: 800px; max-height: 600px; object-fit:contain;" />'
+#                 screenshot_html = (
+#                         img_tag + "<br/>"
+#                 )  # Use <br/> for line break after inline-block image
+#             else:
+#                 logger.warning(
+#                     f"Screenshot for step {step_num} seems invalid (type: {type(screenshot_data)}, len: {len(screenshot_data) if isinstance(screenshot_data, str) else 'N/A'})."
+#                 )
+#                 screenshot_html = "**[Invalid screenshot data]**<br/>"
 
-        except Exception as e:
-            logger.error(
-                f"Error processing or formatting screenshot for step {step_num}: {e}",
-                exc_info=True,
-            )
-            screenshot_html = "**[Error displaying screenshot]**<br/>"
-    else:
-        logger.debug(f"No screenshot available for step {step_num}.")
+#         except Exception as e:
+#             logger.error(
+#                 f"Error processing or formatting screenshot for step {step_num}: {e}",
+#                 exc_info=True,
+#             )
+#             screenshot_html = "**[Error displaying screenshot]**<br/>"
+#     else:
+#         logger.debug(f"No screenshot available for step {step_num}.")
 
-    # --- Format Agent Output ---
-    formatted_output = _format_agent_output(output)  # Use the updated function
+#     # --- Format Agent Output ---
+#     formatted_output = _format_agent_output(output)  # Use the updated function
 
-    # --- Combine and Append to Chat ---
-    step_header = f"--- **Step {step_num}** ---"
-    # Combine header, image (with line break), and JSON block
-    final_content = step_header + "<br/>" + screenshot_html + formatted_output
-    save_chat = {
-        "evaluation_previous_goal": getattr(output.current_state, "evaluation_previous_goal", ""),
-        "memory": getattr(output.current_state, "memory", ""),
-        "next_goal": getattr(output.current_state, "next_goal", ""),
-    }
+#     # --- Combine and Append to Chat ---
+#     step_header = f"--- **Step {step_num}** ---"
+#     # Combine header, image (with line break), and JSON block
+#     final_content = step_header + "<br/>" + screenshot_html + formatted_output
+#     save_chat = {
+#         "evaluation_previous_goal": getattr(output.current_state, "evaluation_previous_goal", ""),
+#         "memory": getattr(output.current_state, "memory", ""),
+#         "next_goal": getattr(output.current_state, "next_goal", ""),
+#     }
 
-    chat_message = {
-        "role": "assistant",
-        "content": final_content.strip(),  # Remove leading/trailing whitespace
-    }
+#     chat_message = {
+#         "role": "assistant",
+#         "content": final_content.strip(),  # Remove leading/trailing whitespace
+#     }
 
-    #lets store the formatted output in a file
-    agent_response_path = os.path.join(output_data_dir, "agent_response.json")
-    try:
-        logger.info(f"Saving agent response to {agent_response_path}")
-        with open(agent_response_path, "w") as f:
-            json.dump(save_chat, f)
-            logger.info(f"\n AGENT RESPONSE SAVED TO PATH: {agent_response_path}")
-    except Exception as e:
-        logger.error(f"Error saving agent response: {e}")
+#     #lets store the formatted output in a file
+#     agent_response_path = os.path.join(output_data_dir, "agent_response.json")
+#     try:
+#         logger.info(f"Saving agent response to {agent_response_path}")
+#         with open(agent_response_path, "w") as f:
+#             json.dump(save_chat, f)
+#             logger.info(f"\n AGENT RESPONSE SAVED TO PATH: {agent_response_path}")
+#     except Exception as e:
+#         logger.error(f"Error saving agent response: {e}")
 
 
-    # Append to the correct chat history list
-    webui_manager.bu_chat_history.append(chat_message)
+#     # Append to the correct chat history list
+#     webui_manager.bu_chat_history.append(chat_message)
         
-    await asyncio.sleep(0.05)
+#     await asyncio.sleep(0.05)
 
-    # Check if video recording is active
-    if hasattr(webui_manager.bu_browser, ''
-    ''):
-        if webui_manager.bu_browser.recorder.is_video_recording():
-            logger.info("🎥 Video recording is active")
-        else:
-            logger.warning("⚠️ Video recording is not active!")
+#     # Check if video recording is active
+#     if hasattr(webui_manager.bu_browser, ''
+#     ''):
+#         if webui_manager.bu_browser.recorder.is_video_recording():
+#             logger.info("🎥 Video recording is active")
+#         else:
+#             logger.warning("⚠️ Video recording is not active!")
 
 
-def _handle_done(webui_manager: WebuiManager, history: AgentHistoryList):
-    """Callback when the agent finishes the task (success or failure)."""
-    logger.info(
-        f"Agent task finished. Duration: {history.total_duration_seconds():.2f}s, Tokens: {history.total_input_tokens()}"
-    )
-    final_summary = "**Task Completed**\n"
-    final_summary += f"- Duration: {history.total_duration_seconds():.2f} seconds\n"
-    final_summary += f"- Total Input Tokens: {history.total_input_tokens()}\n"  # Or total tokens if available
+# def _handle_done(webui_manager: WebuiManager, history: AgentHistoryList):
+#     """Callback when the agent finishes the task (success or failure)."""
+#     logger.info(
+#         f"Agent task finished. Duration: {history.total_duration_seconds():.2f}s, Tokens: {history.total_input_tokens()}"
+#     )
+#     final_summary = "**Task Completed**\n"
+#     final_summary += f"- Duration: {history.total_duration_seconds():.2f} seconds\n"
+#     final_summary += f"- Total Input Tokens: {history.total_input_tokens()}\n"  # Or total tokens if available
 
-    final_result = history.final_result()
-    if final_result:
-        final_summary += f"- Final Result: {final_result}\n"
+#     final_result = history.final_result()
+#     if final_result:
+#         final_summary += f"- Final Result: {final_result}\n"
 
-    errors = history.errors()
-    if errors and any(errors):
-        final_summary += f"- **Errors:**\n```\n{errors}\n```\n"
-    else:
-        final_summary += "- Status: Success\n"
+#     errors = history.errors()
+#     if errors and any(errors):
+#         final_summary += f"- **Errors:**\n```\n{errors}\n```\n"
+#     else:
+#         final_summary += "- Status: Success\n"
 
-    webui_manager.bu_chat_history.append(
-        {"role": "assistant", "content": final_summary}
-    )
+#     webui_manager.bu_chat_history.append(
+#         {"role": "assistant", "content": final_summary}
+#     )
 
 #This callback handles agent help requests but isn’t used in the current flow. 
 # and This feature is disabled for the current use case.
@@ -516,12 +516,6 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
         final_result = history.final_result() or "No result"
 
 
-#     # Get only the final ActionResult.extracted_content
-#     final_result = (
-#         last_result.extracted_content 
-#         if last_result and last_result.extracted_content 
-#         else history.final_result() or "No result"
-# )
     return {
         "task_id": task_id,
         "final_result": final_result,
@@ -630,9 +624,9 @@ async def _initialize_llm(
 #         #ollama_num_ctx if llm_provider_name == "ollama" else None,
 #     )
 
-# #/////////////////
+
 # #planner functionality using a separate LLM is not required in the current setup.
-# #/////////////////
+
 
 #     # planner_llm_provider_name = None                        
 #     # planner_llm = None

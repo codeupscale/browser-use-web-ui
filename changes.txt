@@ -1,0 +1,40 @@
+browser-use-agent-tab.py
+-------------------------
+- Removed all extra/unused variables.
+- Rewrote run_agent_task() without using gradio, webui_manager, or other UI dependencies.
+- Commented out all unused functions:
+    - pause_button
+    - resume_button
+    - _ask_assistant_callback
+    - handle_done
+    - handle_new_step
+    - _get_config_value
+    - _format_agent_output
+- Created a FastAPI endpoint to run main-agent-task.
+- Created a "static/" folder containing a simple UI for "Website Testing Agent".
+
+browser_recorder.py
+--------------------
+- Cleans the entire video directory before starting a new recording session.
+- Uses glob.glob() to recursively find .webm files after context closure.
+- Does not use page.on() or page.video.start(); relies on Playwright's built-in recording mechanism.
+- Stores just the filenames in a list: self.recorded_videos.
+
+agent/mainagent.py
+-------------------
+- Modified loop logic to ensure the agent runs correctly only when required.
+
+agent/qa_possibility_checker/
+------------------------------
+- Updated prompt.py with refined prompt structure.
+- Added custom_validate() function in output.py for validating the agent output.
+
+agent/intent_classifier/
+------------------------------
+- Added custom_validate() function in output.py for validating the agent output.
+
+agent/prompt_enhancer/
+------------------------------
+- Added custom_validate() function in output.py for validating the agent output.
+
+
