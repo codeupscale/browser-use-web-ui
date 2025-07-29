@@ -9,3 +9,5 @@ langchain_mcp_adapters==0.0.9
 langgraph==0.3.34
 langchain-community
 langchain-ollama
+fastapi
+uvicorn[standard]

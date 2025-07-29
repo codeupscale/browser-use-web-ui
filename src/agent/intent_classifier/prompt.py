@@ -53,12 +53,14 @@ User query: "{input}"
 
 - Always make sure that performing any sought of functionality would also be considered as SQA because user might sometimes just ask simply to do this/that on the website. 
 
+- When modifyin the prompt, always include the url that has been orginally given by the user.
+
 Output Structre:
 Return the result as a JSON object in the following format ONLY:
 { 
     "agent_msg": "The intent is realted to QA"
     "intent": true 
-    "prompt": new prompt without the UI or animation testing or just nothing like this ""
+    "modified_prompt": (new prompt without the UI or animation testing or just nothing like this "")
 } 
 or 
 {

@@ -91,6 +91,7 @@ class AgentOrchestrator:
         self.builder.add_node("prompt_enhancer", self.prompt_enhancer)
         self.builder.add_node("browser_ui", self.browser_ui)
 
+
         self.builder.add_edge(START, "intent_classifier")
 
         self.builder.add_conditional_edges(
@@ -109,7 +110,7 @@ class AgentOrchestrator:
                 "take_screenshot": "take_screenshot",
                 "__end__": END
             }
-        )
+        )                        
 
         self.builder.add_conditional_edges(
             "take_screenshot",
@@ -250,8 +251,10 @@ class AgentOrchestrator:
         logger.info("\n\n BROWSER UI AGENT...\n")
         try:
             # Initialize BrowserUseAgent with all required parameters
+            task = f"{state['enhanced_prompt']} URL: {self.url}"
+            logger.info("task to browser use agent: " ,task )
             browser_agent = BrowserUseAgent(
-                task=state["enhanced_prompt"],
+                task=task,
                 llm=self.llm,
                 browser=state["browser"],
                 browser_context=state["browser_context"],

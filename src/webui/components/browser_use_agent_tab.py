@@ -353,10 +353,7 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
     Simplified agent runner that handles everything
     Returns: {
         "task_id": str,
-        "final_result": str,
-        "screenshot_paths": list[str],
-        "response_paths": list[str],
-        "output_dir": str
+        "final_result": str
     }
     """
     task_id = str(uuid.uuid4())
@@ -364,16 +361,38 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
     
     os.makedirs(output_dir, exist_ok=True)
     
+    # Set display for Docker
+    if not os.getenv("DISPLAY"):
+        os.environ["DISPLAY"] = ":99"
+    
+    print(f"🖥️ Using display: {os.getenv('DISPLAY')}")
+    
     # 1. Initialize browser
     playwright = await async_playwright().start()
     browser = CustomBrowser(
         config=BrowserConfig(
-            headless=False,
+            headless=False,  # Keep browser visible for VNC
             disable_security=False,
-            extra_browser_args=[],
+            fullscreen=True,  # Start in fullscreen mode
+            extra_browser_args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-web-security",
+                "--disable-features=VizDisplayCompositor",
+                "--start-maximized",
+                "--window-size=1920,1080",
+                "--window-position=0,0",
+                "--disable-extensions",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--force-device-scale-factor=1",
+                "--high-dpi-support=1"
+            ],
             new_context_config=BrowserContextConfig(
-                window_width=1280,
-                window_height=1100
+                window_width=1920,
+                window_height=1080
             )
         )
     )
@@ -381,19 +400,53 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
     
     playwright_browser = await browser._setup_builtin_browser(playwright)
     
-    # Setup recorder with the actual browser instance
+    # Setup recorder with the actual browser instance (optional for debugging)
     recorder = BrowserRecorder()
-    browser_context = await recorder.setup_recording(playwright_browser)  # FIXED HERE
+    browser_context = await recorder.setup_recording(playwright_browser)
     
     
     # 2. Create context
     context_config = BrowserContextConfig(
         save_downloads_path=os.path.join(output_dir, "downloads"),
-        window_height=1100,
-        window_width=1280,
+        window_height=1080,
+        window_width=1920,
     )
     browser_context = await browser.new_context(config=context_config)
     await browser_context.setup()
+    
+    # Maximize the browser window to fill the entire VNC screen
+    try:
+        page = await browser_context.new_page()
+        # Set viewport to full screen size
+        await page.set_viewport_size({"width": 1920, "height": 1080})
+        # More aggressive window maximization
+        await page.evaluate("""
+            // Maximize window
+            if (window.screen && window.screen.availWidth && window.screen.availHeight) {
+                window.resizeTo(window.screen.availWidth, window.screen.availHeight);
+                window.moveTo(0, 0);
+            }
+            
+            // Try multiple fullscreen methods
+            setTimeout(() => {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            }, 1000);
+            
+            // Also try to maximize the browser window itself
+            if (window.chrome && window.chrome.webstore) {
+                // Chrome-specific maximization
+                window.resizeTo(screen.availWidth, screen.availHeight);
+            }
+        """)
+        await page.close()
+    except Exception as e:
+        print(f"⚠️ Could not maximize browser window: {e}")
     
     # 3. Initialize controller
     controller = CustomController()
@@ -406,24 +459,13 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
         api_key=os.getenv("OPENAI_API_KEY")
     )
     
-    # 5. Create step handler
+    # 5. Create step handler (simplified for live viewing)
     async def handle_step(state: BrowserState, output: AgentOutput, step_num: int):
-        """Process each agent step and save outputs"""
+        """Process each agent step - simplified for live viewing"""
         step_dir = os.path.join(output_dir, f"step_{step_num}")
         os.makedirs(step_dir, exist_ok=True)
         
-        # Save screenshot
-        screenshot_path = None
-        if state.screenshot:
-            try:
-                image_data = base64.b64decode(state.screenshot)
-                screenshot_path = os.path.join(step_dir, "screenshot.png")
-                with open(screenshot_path, "wb") as f:
-                    f.write(image_data)
-            except Exception as e:
-                logger.error(f"Error saving screenshot: {e}")
-        
-        # Save agent response
+        # Save agent response for debugging
         response_data = {
             "evaluation_previous_goal": getattr(output.current_state, "evaluation_previous_goal", ""),
             "memory": getattr(output.current_state, "memory", ""),
@@ -433,26 +475,25 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
         with open(response_path, "w") as f:
             json.dump(response_data, f)
             
-        return screenshot_path, response_path
+        return None, response_path
 
     # 6. Run agent
     agent = AgentOrchestrator(
         llm=llm,
         browser_config={
-            "headless": False,
-            "window_width": 1280,
-            "window_height": 1100,
+            "headless": False,  # Keep browser visible for VNC
+            "window_width": 1920,
+            "window_height": 1080,
             "use_own_browser": True,
             "disable_security": False,
             "url": url
         },
         use_vision=True,
         max_actions_per_step=5,
-        generate_gif=True,
-        user_query=f"{query}  url: {url}",
+        generate_gif=False,  # Disable GIF generation since we have live view
+        user_query=query,
         url=url,
         register_new_step_callback=handle_step,
-        #done_callback=lambda history: logger.info(f"Task completed in {history.total_duration_seconds():.2f}s"),
         override_system_prompt=None,
         extend_system_prompt=None,
     )
@@ -470,38 +511,23 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
         if last_history_item.result:
             last_result = last_history_item.result[-1]  # Get the last result in that item
 
-    # Now you can access fields like:
+    # Process results
     if last_result:
-        
-        print(type(last_result.extracted_content))
-        
-        print("sample output:",last_result.extracted_content[-1])
         print("✅ Extracted Content:", last_result.extracted_content)
         print("✅ Is Done:", last_result.is_done)
-        #logger.info(f'📄 Result: {result[-1].extracted_content}')
-
     else:
         print("⚠️ No result found.")
 
-    await recorder.save_recording()
-
+    # Save recording for debugging (optional)
+    try:
+        await recorder.save_recording()
+    except Exception as e:
+        logger.warning(f"Could not save recording: {e}")
     
     # 7. Cleanup
     await browser_context.close()
     await browser.close()
     await playwright.stop()
-  
-    videos = recorder.get_recorded_videos()
-    
-    # Validate that videos actually exist
-    valid_videos = []
-    for video in videos:
-        video_path = os.path.join("outputdata", "videos", video)
-        if os.path.exists(video_path):
-            valid_videos.append(video)
-        else:
-            logger.warning(f"⚠️ Video file not found: {video_path}")
-
        
     final_result = "No result"
     if last_result and last_result.extracted_content:
@@ -515,11 +541,9 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
     else:
         final_result = history.final_result() or "No result"
 
-
     return {
         "task_id": task_id,
-        "final_result": final_result,
-        "videos": valid_videos
+        "final_result": final_result
     }
     
     
@@ -982,7 +1006,7 @@ async def handle_stop(webui_manager: WebuiManager):
             
             # ,webui_manager.get_component_by_id(
             #     "browser_use_agent.pause_resume_button"
-            #): gr.update(interactive=False)
+            # ): gr.update(interactive=False)
             ,
             webui_manager.get_component_by_id(
                 "browser_use_agent.run_button"
@@ -1162,10 +1186,25 @@ def create_browser_use_agent_tab(webui_manager: WebuiManager):
             run_button = gr.Button("▶️ Submit Task", variant="primary", scale=3)
 
         browser_view = gr.HTML(
-            value="<div style='width:100%; height:50vh; display:flex; justify-content:center; align-items:center; border:1px solid #ccc; background-color:#f0f0f0;'><p>Browser View (Requires Headless=True)</p></div>",
-            label="Browser Live View",
+            value="""
+            <div style="width:100%; height:600px; border:1px solid #ccc; border-radius:8px; overflow:hidden;">
+                <div style="background:#f8f9fa; padding:10px; border-bottom:1px solid #dee2e6;">
+                    <strong>🖥️ Live Browser View</strong>
+                    <span style="float:right; color:#28a745;">● Connected</span>
+                </div>
+                <iframe 
+                    src="http://localhost:6080/vnc.html?autoconnect=true&resize=scale&password=youvncpassword&autoconnect=true&resize=scale&quality=6&compression=6" 
+                    width="100%" 
+                    height="calc(100% - 50px)" 
+                    frameborder="0"
+                    allowfullscreen
+                    style="border-radius: 0 0 8px 8px;">
+                </iframe>
+            </div>
+            """,
+            label="Live Browser Automation",
             elem_id="browser_view",
-            visible=False,
+            visible=True,
         )
         with gr.Column():
             gr.Markdown("### Task Outputs")
