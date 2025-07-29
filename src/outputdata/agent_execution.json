@@ -1,3 +1,10 @@
 [
-  
+  {
+    "timestamp": "2025-07-28 15:56:40",
+    "agents_name": "Webpage Checker",
+    "number_of_tries": 1,
+    "time_taken": 1,
+    "user_input": "https://zanjabeelbookstore.com/collections/novels-by-nemrah-ahmed",
+    "output": "200 - OK"
+  }
 ]
