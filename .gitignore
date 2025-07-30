@@ -191,3 +191,9 @@ data/
 
 workflow.env
 .venv/
+
+
+
+#ssh keys poublic and private 
+"eval \"$(ssh-agent -s)\""
+"eval \"$(ssh-agent -s)\".pub"
