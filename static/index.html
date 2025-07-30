@@ -1,17 +1,15 @@
-<link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Next SQA AI</title>
+  <title>Next SQA AI - Live Browser Testing</title>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
       background-color: #f9f9f9;
       padding: 40px;
       color: #333;
-      max-width: 800px;
+      max-width: 1000px;
       margin: auto;
     }
 
@@ -68,17 +66,17 @@
       cursor: not-allowed;
     }
 
-    #video-container {
+    #live-browser-container {
       margin-top: 40px;
-      text-align: center;
     }
 
-    video {
-      width: 100%;
-      max-width: 100%;
-      border-radius: 10px;
-      border: 1px solid #ddd;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    #agent-status {
+      text-align: center;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      background-color: #e9ecef;
+      font-weight: 500;
     }
 
     #error-message {
@@ -86,12 +84,54 @@
       text-align: center;
       margin-top: 15px;
     }
+
+    .vnc-container {
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      height: 700px;
+      width: 100%;
+    }
+
+    .status-running {
+      background-color: #d4edda !important;
+      color: #155724 !important;
+    }
+
+    .status-completed {
+      background-color: #d1ecf1 !important;
+      color: #0c5460 !important;
+    }
+
+    .status-error {
+      background-color: #f8d7da !important;
+      color: #721c24 !important;
+    }
+
+    #vnc-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: none;
+      object-fit: contain;
+    }
+
+    #vnc-placeholder {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      padding: 20px;
+      text-align: center;
+      color: #666;
+    }
   </style>
 </head>
-<meta http-equiv="Cache-Control" content="no-store" />
 
 <body>
-  <h2>🧪 Website Testing Agent</h2>
+  <h2>🧪 Live Browser Testing Agent</h2>
 
   <div class="form-group">
     <label for="query">Prompt:</label>
@@ -104,20 +144,32 @@
   </div>
 
   <div class="buttons">
-    <button onclick="submitTest()">Submit</button>
+    <button onclick="submitTest()">Start Live Test</button>
     <button onclick="clearForm()">Clear</button>
     <button onclick="stopTest()">Stop</button>
   </div>
 
   <div id="error-message"></div>
+  <div id="agent-status">Ready to start testing...</div>
 
-  <div id="video-container">
-    <h3>Test Video:</h3>
-    <div style="margin-top: 15px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 10px; padding: 10px; display: flex; justify-content: center; align-items: center; min-height: 300px;">
-      <video id="test-video" controls hidden style="width: 100%; max-width: 700px; height: 280px; border-radius: 10px;">
-        <source id="video-source" src="" type="video/webm" />
-        Your browser does not support the video tag.
-      </video>
+  <div id="live-browser-container">
+    <h3>Live Browser Interaction:</h3>
+    <div class="vnc-container">
+      <div id="vnc-placeholder">
+        <p>🔄 Browser will appear here when agent starts...</p>
+        <p style="font-size: 14px; color: #999;">You'll see real-time automation happening!</p>
+        <p style="font-size: 12px; color: #ccc; margin-top: 20px;">
+          <strong>Instructions:</strong><br>
+          1. Enter your query and URL above<br>
+          2. Click "Start Live Test"<br>
+          3. Watch the browser automation happen live!
+        </p>
+      </div>
+      <iframe 
+        id="vnc-iframe" 
+        src="" 
+        allowfullscreen>
+      </iframe>
     </div>
   </div>
 
@@ -126,9 +178,10 @@
       const queryInput = document.getElementById("query");
       const urlInput = document.getElementById("url");
       const errorDiv = document.getElementById("error-message");
-      const submitBtn = document.querySelector(".buttons button"); // Submit button
-      const video = document.getElementById("test-video");
-      const source = document.getElementById("video-source");
+      const statusDiv = document.getElementById("agent-status");
+      const submitBtn = document.querySelector(".buttons button");
+      const vncIframe = document.getElementById("vnc-iframe");
+      const vncPlaceholder = document.getElementById("vnc-placeholder");
 
       const query = queryInput.value.trim();
       const url = urlInput.value.trim();
@@ -147,11 +200,15 @@
       submitBtn.textContent = "Running...";
       submitBtn.style.backgroundColor = "#6c757d";
 
-      // Reset video and message
-      source.src = "";
-      video.load();
-      video.hidden = true;
-      document.querySelector("#video-container h3").textContent = "Test Video:";
+      // Show VNC viewer with proper configuration
+      statusDiv.textContent = "🔄 Starting browser...";
+      statusDiv.className = "status-running";
+      vncPlaceholder.style.display = "none";
+      vncIframe.style.display = "block";
+      
+      // Configure VNC with optimal settings for live viewing - full screen and better scaling
+      const vncUrl = "http://localhost:6080/vnc.html?autoconnect=true&resize=scale&password=youvncpassword&autoconnect=true&resize=scale&quality=6&compression=6&clipViewport=true&scaleViewport=true&reconnect=true&fullscreen=true&scale=1.0&fitMode=scale&viewOnly=false&showDotCursor=true&background=#000000";
+      vncIframe.src = vncUrl;
 
       try {
         const response = await fetch("/run-agent", {
@@ -164,53 +221,63 @@
         console.log("Agent result:", result);
 
         if (response.ok) {
-          if (result.videos && result.videos.length > 0) {
-            const videoFilename = result.videos[0];
-            const videoPath = `/videos/${videoFilename}?t=${Date.now()}&r=${Math.random()}`;
-
-            console.log("Loading video:", videoPath);
-            
-            source.src = videoPath;
-            video.load();
-            video.hidden = false;
-
-            video.hidden = false;
-            document.querySelector("#video-container h3").textContent = "Test Video:";
-          } else {
-            errorDiv.textContent = "No video was recorded for this task.";
-            document.querySelector("#video-container h3").textContent = "No test performed.";
-          }
+          statusDiv.textContent = "✅ Task completed! Check the browser above for results.";
+          statusDiv.className = "status-completed";
+          document.querySelector("#live-browser-container h3").textContent = "✅ Task Completed - Final Browser State:";
         } else {
           errorDiv.textContent = "Error: " + (result.detail || "Unknown error");
+          statusDiv.textContent = "❌ Task failed";
+          statusDiv.className = "status-error";
+          vncIframe.style.display = "none";
+          vncPlaceholder.style.display = "flex";
+          vncPlaceholder.innerHTML = "<p>❌ Task failed</p>";
         }
       } catch (err) {
         errorDiv.textContent = "Something went wrong. Please try again.";
         console.error("Fetch error:", err);
+        statusDiv.textContent = "❌ Connection failed";
+        statusDiv.className = "status-error";
+        vncIframe.style.display = "none";
+        vncPlaceholder.style.display = "flex";
+        vncPlaceholder.innerHTML = "<p>❌ Connection failed</p>";
       }
 
       // ✅ Restore button but keep inputs disabled
       submitBtn.disabled = false;
-      submitBtn.textContent = "Submit";
+      submitBtn.textContent = "Start Live Test";
       submitBtn.style.backgroundColor = "#007bff";
     }
 
     function clearForm() {
       const queryInput = document.getElementById("query");
       const urlInput = document.getElementById("url");
-      const video = document.getElementById("test-video");
-      const source = document.getElementById("video-source");
+      const vncIframe = document.getElementById("vnc-iframe");
+      const vncPlaceholder = document.getElementById("vnc-placeholder");
+      const statusDiv = document.getElementById("agent-status");
 
       queryInput.value = "";
       urlInput.value = "";
       queryInput.disabled = false;
       urlInput.disabled = false;
 
-      video.hidden = true;
-      source.src = "";
-      video.load();
+      // Hide VNC viewer
+      vncIframe.style.display = "none";
+      vncPlaceholder.style.display = "flex";
+      vncPlaceholder.innerHTML = `
+        <p>🔄 Browser will appear here when agent starts...</p>
+        <p style="font-size: 14px; color: #999;">You'll see real-time automation happening!</p>
+        <p style="font-size: 12px; color: #ccc; margin-top: 20px;">
+          <strong>Instructions:</strong><br>
+          1. Enter your query and URL above<br>
+          2. Click "Start Live Test"<br>
+          3. Watch the browser automation happen live!
+        </p>
+      `;
 
       document.getElementById("error-message").textContent = "";
-      document.querySelector("#video-container h3").textContent = "Test Video:";
+      document.querySelector("#live-browser-container h3").textContent = "Live Browser Interaction:";
+      statusDiv.textContent = "Ready to start testing...";
+      statusDiv.className = "";
     }
 
     function stopTest() {
