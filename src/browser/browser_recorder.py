@@ -16,7 +16,17 @@ logger = logging.getLogger(__name__)
 class BrowserRecorder:
     def __init__(self):
         # Define video directory
-        self.video_dir = os.path.join(os.getcwd(), "outputdata", "videos")
+        # Paths for local development
+        # self.video_dir = os.path.join(os.getcwd(), "outputdata", "videos")
+        
+        # Paths for Dockerized application
+        self.video_dir = os.path.join("/app", "src", "outputdata", "videos")
+        
+        # Debug: Print video directory info
+        print(f"🎥 Video directory: {self.video_dir}")
+        print(f"🎥 Video directory exists: {os.path.exists(self.video_dir)}")
+        print(f"🎥 Video directory writable: {os.access(self.video_dir, os.W_OK) if os.path.exists(self.video_dir) else 'N/A'}")
+        
         self.context = None
         self.is_recording = False
         self.recorded_videos = []

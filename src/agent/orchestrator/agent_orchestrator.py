@@ -180,13 +180,26 @@ class AgentOrchestrator:
 
     async def take_screenshot(self, state: State) -> State:
 
-        save_path = "screenshot.png"
+        # Paths for local development
+        # save_path = "screenshot.png"
+        
+        # Paths for Dockerized application
+        save_path = "/app/src/outputdata/screenshot.png"
+        
+        # Debug: Print screenshot path info
+        print(f"📸 Screenshot path: {save_path}")
+        print(f"📸 Screenshot directory exists: {os.path.exists(os.path.dirname(save_path))}")
+        print(f"📸 Screenshot directory writable: {os.access(os.path.dirname(save_path), os.W_OK) if os.path.exists(os.path.dirname(save_path)) else 'N/A'}")
+        
         try:
             logger.info("Taking screenshot...")
+            print(f"🌐 Navigating to URL: {self.url}")
+            
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
                 page = await browser.new_page()
                 await page.goto(self.url, timeout=60000, wait_until="networkidle")
+                print(f"✅ Page loaded successfully")
                 
                 #await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 await asyncio.sleep(1)
@@ -196,11 +209,19 @@ class AgentOrchestrator:
                     await page.mouse.wheel(0, 1000)
                     await asyncio.sleep(1)
 
+                print(f"📸 Taking screenshot and saving to: {save_path}")
                 await page.screenshot(path=save_path, full_page=True)
                 await browser.close()
                 logger.info(f"Screenshot saved at: {save_path}")
                 
-                state["screenshot_taken"] = True
+                # Debug: Verify screenshot was actually saved
+                if os.path.exists(save_path):
+                    file_size = os.path.getsize(save_path)
+                    print(f"✅ Screenshot saved successfully! Size: {file_size} bytes")
+                    state["screenshot_taken"] = True
+                else:
+                    print(f"❌ Screenshot file not found at: {save_path}")
+                    state["screenshot_taken"] = False
         except Exception as e:
             logger.error(f"Error taking screenshot: {e}")
             state["screenshot_taken"] = False
@@ -210,7 +231,11 @@ class AgentOrchestrator:
     def get_image_fileId(self, state: State) -> State:
         logger.info("Extracting image file ID...")
         try:
-            with open("screenshot.png", "rb") as image_file:
+            # Paths for local development
+            # with open("screenshot.png", "rb") as image_file:
+            
+            # Paths for Dockerized application
+            with open("/app/src/outputdata/screenshot.png", "rb") as image_file:
                 image_file_id = self.client.files.create(file=image_file, purpose="vision").id
                 logger.info(f"Image file ID extracted: {image_file_id}")
                 state["image_fileId"] = image_file_id

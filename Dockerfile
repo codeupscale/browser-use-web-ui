@@ -44,6 +44,16 @@ RUN apt-get update && apt-get install -y \
     fonts-dejavu-core \
     fonts-dejavu-extra \
     vim \
+    # Video recording dependencies
+    ffmpeg \
+    libavcodec-extra \
+    libavformat-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libx264-dev \
+    libx265-dev \
+    libvpx-dev \
+    libwebp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install noVNC
@@ -64,6 +74,9 @@ RUN node -v && npm -v && npx -v
 
 # Set up working directory
 WORKDIR /app
+
+# Add src directory to Python path for imports
+ENV PYTHONPATH=/app/src:/app
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .

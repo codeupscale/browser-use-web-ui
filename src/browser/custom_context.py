@@ -27,7 +27,11 @@ class CustomBrowserContext(BrowserContext):
         logger.info("\n[DEBUG] Creating new browser context...")
         
         # Create videos directory under src/outputdata
-        video_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputdata", "videos")
+        # Paths for local development
+        # video_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputdata", "videos")
+        
+        # Paths for Dockerized application
+        video_dir = os.path.join("/app", "src", "outputdata", "videos")
         os.makedirs(video_dir, exist_ok=True)
         logger.info(f"[DEBUG] Video directory: {video_dir}")
         
@@ -58,7 +62,11 @@ class CustomBrowserContext(BrowserContext):
         """Create a new browser context with video recording enabled"""
         logger.info("\n[DEBUG] Creating new browser context...")
         context = await browser.new_context(
-            record_video_dir="outputdata/videos",
+            # Paths for local development
+            # record_video_dir="outputdata/videos",
+            
+            # Paths for Dockerized application
+            record_video_dir="/app/src/outputdata/videos",
             record_video_size={"width": 1280, "height": 720}
         )
         logger.info("[DEBUG] Context created with video recording settings")

@@ -44,13 +44,25 @@ def write_data_to_file(
                 "final_result": final_result
             }
         else:
+            # Convert Pydantic objects to dictionaries for JSON serialization
+            serializable_output = output
+            if hasattr(output, 'model_dump'):
+                # For Pydantic v2
+                serializable_output = output.model_dump()
+            elif hasattr(output, 'dict'):
+                # For Pydantic v1
+                serializable_output = output.dict()
+            elif hasattr(output, '__dict__'):
+                # Fallback for other objects
+                serializable_output = output.__dict__
+            
             new_entry = {
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "agents_name": agents_name,
                 "number_of_tries": number_of_tries,
                 "time_taken": time_taken,
                 "user_input": user_input,
-                "output": output
+                "output": serializable_output
             }
 
         data.append(new_entry)
@@ -58,6 +70,12 @@ def write_data_to_file(
         #Write entire list back safely
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
+        
+        print(f"✅ Successfully wrote data for agent: {agents_name}")
 
     except Exception as e:
         print(f"❌ Error writing data to file: {e}")
+        print(f"🔍 Debug info - agents_name: {agents_name}")
+        print(f"🔍 Debug info - output type: {type(output) if output else 'None'}")
+        if output:
+            print(f"🔍 Debug info - output attributes: {dir(output)}")

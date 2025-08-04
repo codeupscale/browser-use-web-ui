@@ -3,3 +3,16 @@ tmp
 results
 
 .env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.db
+*.sqlite3
+*.log
+*.mp4
+*.avi
+*.mkv
+*.webm

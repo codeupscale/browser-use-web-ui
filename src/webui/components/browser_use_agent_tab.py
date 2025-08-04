@@ -177,9 +177,13 @@ async def _initialize_llm(
 #     #get the current directory
 #     #and create a new directory according to the step number
 #     current_dir = os.path.dirname(__file__)
-#     # output_data_dir = os.path.join(current_dir, "..", "..", "src", "outputdata", "step_" + str(step_num))
-#     #output_data_dir = os.path.join(current_dir, "..", "..", "outputdata", "step_" + str(step_num))
-#     output_data_dir = "./outputdata"
+    #     # Paths for local development
+    #     # output_data_dir = os.path.join(current_dir, "..", "..", "src", "outputdata", "step_" + str(step_num))
+    #     #output_data_dir = os.path.join(current_dir, "..", "..", "outputdata", "step_" + str(step_num))
+    #     # output_data_dir = "./outputdata"
+    #     
+    #     # Paths for Dockerized application
+    #     output_data_dir = "/app/src/outputdata"
 
 #     os.makedirs(output_data_dir, exist_ok=True)
 
@@ -357,9 +361,20 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
     }
     """
     task_id = str(uuid.uuid4())
-    output_dir = os.path.join("src", "outputdata")
+    # Paths for local development
+    # output_dir = os.path.join("src", "outputdata")
+    
+    # Paths for Dockerized application
+    output_dir = os.path.join("/app", "src", "outputdata")
+    
+    # Debug: Print current working directory and output directory
+    print(f"🔍 Current working directory: {os.getcwd()}")
+    print(f"🔍 Output directory: {output_dir}")
+    print(f"🔍 Output directory exists: {os.path.exists(output_dir)}")
+    print(f"🔍 Output directory writable: {os.access(output_dir, os.W_OK) if os.path.exists(output_dir) else 'N/A'}")
     
     os.makedirs(output_dir, exist_ok=True)
+    print(f"✅ Created/verified output directory: {output_dir}")
     
     # Set display for Docker
     if not os.getenv("DISPLAY"):
@@ -691,8 +706,13 @@ async def _initialize_llm(
 #     #wss_url = get_browser_setting("wss_url") or None                                   #not used in this deployment.
 #     save_recording_path = None #get_browser_setting("save_recording_path") or None         # Recording handled through context config
 #     save_trace_path = None #get_browser_setting("save_trace_path") or None                 # Tracing handled through context config
-#     save_agent_history_path = get_browser_setting("save_agent_history_path", "./tmp/agent_history")
-#     save_download_path = get_browser_setting("save_download_path", "./tmp/downloads")
+    #     # Paths for local development
+    #     # save_agent_history_path = get_browser_setting("save_agent_history_path", "./tmp/agent_history")
+    #     # save_download_path = get_browser_setting("save_download_path", "./tmp/downloads")
+    #     
+    #     # Paths for Dockerized application
+    #     save_agent_history_path = get_browser_setting("save_agent_history_path", "/app/src/outputdata/agent_history")
+    #     save_download_path = get_browser_setting("save_download_path", "/app/src/outputdata/downloads")
 #     #should_close_browser_on_finish = not keep_browser_open                                #this logic is not used here 
 
 #     # Create necessary directories
@@ -755,6 +775,12 @@ async def _initialize_llm(
 #         if not webui_manager.bu_browser_context:
 #             logger.info("Creating new browser context.")
 #             context_config = BrowserContextConfig(
+#                 # Paths for local development
+#                 # trace_path=save_trace_path if save_trace_path else None,
+#                 # save_recording_path=save_recording_path if save_recording_path else None,
+#                 # save_downloads_path=save_download_path if save_download_path else None,
+#                 
+#                 # Paths for Dockerized application
 #                 trace_path=save_trace_path if save_trace_path else None,
 #                 save_recording_path=save_recording_path if save_recording_path else None,
 #                 save_downloads_path=save_download_path if save_download_path else None,

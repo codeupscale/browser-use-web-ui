@@ -92,5 +92,16 @@ def run_main_agent(
     end_time = time.time()
     time_taken = end_time - start_time
     logger.info(f"Completed in {time_taken:.2f}s with {attempt} attempts")
+
+
+
+    logger.info(f"Writing data to file for agent '{agents_name}'")
+    write_data_to_file(
+        agents_name=agents_name,
+        number_of_tries=attempt,
+        time_taken=time_taken,
+        user_input=input_to_prompt,
+        output=output,
+    )
     
     return output

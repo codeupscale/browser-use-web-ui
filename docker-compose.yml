@@ -63,10 +63,15 @@ services:
 
       # VNC Settings
       - VNC_PASSWORD=${VNC_PASSWORD:-youvncpassword}
+      
+      # Python Path Settings
+      - PYTHONPATH=/app/src
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       # - ./my_chrome_data:/app/data/chrome_data # Optional: persist browser data
+      # Mount output directory for saving screenshots, videos, and agent data
+      - ./src/outputdata:/app/src/outputdata
     restart: unless-stopped
     shm_size: '2gb'
     cap_add:
