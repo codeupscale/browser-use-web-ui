@@ -1,4 +1,4 @@
-from typing import AsyncGenerator, Dict, Any
+from typing import AsyncGenerator, Awaitable, Callable, Dict, Any
 import asyncio
 import json
 import logging
@@ -352,7 +352,7 @@ async def _initialize_llm(
 
 # --- Core Agent Execution Logic --- (Needs access to webui_manager)
 
-async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
+async def run_agent_task(query: str, url: str, message_callback: Optional[Callable[[str], Awaitable[None]]] = None) -> Dict[str, Any]:
     """
     Simplified agent runner that handles everything
     Returns: {
@@ -361,66 +361,45 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
     }
     """
     task_id = str(uuid.uuid4())
-    # Paths for local development
-    # output_dir = os.path.join("src", "outputdata")
+    if message_callback:
+        await message_callback(f"Task ID: {task_id}")
+
     
-    # Paths for Dockerized application
     output_dir = os.path.join("/app", "src", "outputdata")
-    
-    # Debug: Print current working directory and output directory
-    print(f"🔍 Current working directory: {os.getcwd()}")
-    print(f"🔍 Output directory: {output_dir}")
-    print(f"🔍 Output directory exists: {os.path.exists(output_dir)}")
-    print(f"🔍 Output directory writable: {os.access(output_dir, os.W_OK) if os.path.exists(output_dir) else 'N/A'}")
-    
     os.makedirs(output_dir, exist_ok=True)
-    print(f"✅ Created/verified output directory: {output_dir}")
-    
-    # Set display for Docker
+
     if not os.getenv("DISPLAY"):
         os.environ["DISPLAY"] = ":99"
-    
+
+    if message_callback:
+        await message_callback(f"🖥️ Using display: {os.environ['DISPLAY']}")
+
     print(f"🖥️ Using display: {os.getenv('DISPLAY')}")
+    
     
     # 1. Initialize browser
     playwright = await async_playwright().start()
     browser = CustomBrowser(
         config=BrowserConfig(
-            headless=False,  # Keep browser visible for VNC
+            headless=False,
             disable_security=False,
-            fullscreen=True,  # Start in fullscreen mode
+            fullscreen=True,
             extra_browser_args=[
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--disable-web-security",
-                "--disable-features=VizDisplayCompositor",
-                "--start-maximized",
-                "--window-size=1920,1080",
-                "--window-position=0,0",
-                "--disable-extensions",
-                "--disable-background-timer-throttling",
-                "--disable-backgrounding-occluded-windows",
-                "--disable-renderer-backgrounding",
-                "--force-device-scale-factor=1",
-                "--high-dpi-support=1"
+                "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
+                "--disable-web-security", "--disable-features=VizDisplayCompositor",
+                "--start-maximized", "--window-size=1920,1080", "--window-position=0,0",
+                "--disable-extensions", "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
+                "--force-device-scale-factor=1", "--high-dpi-support=1"
             ],
-            new_context_config=BrowserContextConfig(
-                window_width=1920,
-                window_height=1080
-            )
+            new_context_config=BrowserContextConfig(window_width=1920, window_height=1080)
         )
     )
-    
-    
+
     playwright_browser = await browser._setup_builtin_browser(playwright)
-    
-    # Setup recorder with the actual browser instance (optional for debugging)
     recorder = BrowserRecorder()
     browser_context = await recorder.setup_recording(playwright_browser)
-    
-    
-    # 2. Create context
+
     context_config = BrowserContextConfig(
         save_downloads_path=os.path.join(output_dir, "downloads"),
         window_height=1080,
@@ -428,21 +407,18 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
     )
     browser_context = await browser.new_context(config=context_config)
     await browser_context.setup()
-    
-    # Maximize the browser window to fill the entire VNC screen
+
+    if message_callback:
+        await message_callback("🌐 Maximizing browser window...")
+
     try:
         page = await browser_context.new_page()
-        # Set viewport to full screen size
         await page.set_viewport_size({"width": 1920, "height": 1080})
-        # More aggressive window maximization
         await page.evaluate("""
-            // Maximize window
             if (window.screen && window.screen.availWidth && window.screen.availHeight) {
                 window.resizeTo(window.screen.availWidth, window.screen.availHeight);
                 window.moveTo(0, 0);
             }
-            
-            // Try multiple fullscreen methods
             setTimeout(() => {
                 if (document.documentElement.requestFullscreen) {
                     document.documentElement.requestFullscreen();
@@ -452,21 +428,20 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
                     document.documentElement.msRequestFullscreen();
                 }
             }, 1000);
-            
-            // Also try to maximize the browser window itself
             if (window.chrome && window.chrome.webstore) {
-                // Chrome-specific maximization
                 window.resizeTo(screen.availWidth, screen.availHeight);
             }
         """)
         await page.close()
     except Exception as e:
         print(f"⚠️ Could not maximize browser window: {e}")
-    
+
     # 3. Initialize controller
     controller = CustomController()
-    
-    # 4. Initialize LLM
+
+    if message_callback:
+        await message_callback("🧠 Initializing LLM...")
+
     llm = await _initialize_llm(
         provider="openai",
         model_name="gpt-4o",
@@ -474,29 +449,54 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
         api_key=os.getenv("OPENAI_API_KEY")
     )
     
-    # 5. Create step handler (simplified for live viewing)
+    # 4. Step handler with WebSocket message sending
     async def handle_step(state: BrowserState, output: AgentOutput, step_num: int):
-        """Process each agent step - simplified for live viewing"""
         step_dir = os.path.join(output_dir, f"step_{step_num}")
         os.makedirs(step_dir, exist_ok=True)
-        
-        # Save agent response for debugging
+
+
+        evaluation = getattr(output.current_state, "evaluation_previous_goal", "")
+        memory = getattr(output.current_state, "memory", "")
+        next_goal = getattr(output.current_state, "next_goal", "")
+        actions = output.actions_taken if hasattr(output, "actions_taken") else []
+
+        # Send to frontend via WebSocket
+        if message_callback:
+            await message_callback("----------------------------")
+            await message_callback(f"🤖 Step {step_num}: Running step...")
+
+            if evaluation:
+                await message_callback(f" ⚠ Eval: {evaluation}")
+            if memory:
+                await message_callback(f"🧠 Memory: {memory}")
+            if next_goal:
+                await message_callback(f"🎯 Next goal: {next_goal}")
+            
+
         response_data = {
             "evaluation_previous_goal": getattr(output.current_state, "evaluation_previous_goal", ""),
             "memory": getattr(output.current_state, "memory", ""),
             "next_goal": getattr(output.current_state, "next_goal", ""),
         }
+
+        # if message_callback:
+            
+        #     await message_callback(f"🤖 Step {step_num}: {response_data['next_goal']}")
+
         response_path = os.path.join(step_dir, "agent_response.json")
         with open(response_path, "w") as f:
             json.dump(response_data, f)
-            
+
         return None, response_path
 
-    # 6. Run agent
+    if message_callback:
+        await message_callback("🚀 Starting agent...")
+
+    # 5. Run agent
     agent = AgentOrchestrator(
         llm=llm,
         browser_config={
-            "headless": False,  # Keep browser visible for VNC
+            "headless": False,
             "window_width": 1920,
             "window_height": 1080,
             "use_own_browser": True,
@@ -505,61 +505,66 @@ async def run_agent_task(query: str, url: str) -> Dict[str, Any]:
         },
         use_vision=True,
         max_actions_per_step=5,
-        generate_gif=False,  # Disable GIF generation since we have live view
+        generate_gif=False,
         user_query=query,
         url=url,
         register_new_step_callback=handle_step,
         override_system_prompt=None,
         extend_system_prompt=None,
+        message_callback=message_callback
     )
-    
+
     history = await agent.run(
         task=f"{query}  url: {url}",
         browser=browser,
         browser_context=browser_context,
         controller=controller
     )
+
     last_result = None
-
     if history.history:
-        last_history_item = history.history[-1]  # Get the last history item
-        if last_history_item.result:
-            last_result = last_history_item.result[-1]  # Get the last result in that item
+        last_item = history.history[-1]
+        if last_item.result:
+            last_result = last_item.result[-1]
 
-    # Process results
     if last_result:
         print("✅ Extracted Content:", last_result.extracted_content)
         print("✅ Is Done:", last_result.is_done)
     else:
         print("⚠️ No result found.")
 
-    # Save recording for debugging (optional)
+    # if message_callback:
+    #     await message_callback("📦 Processing final result...")
+
     try:
         await recorder.save_recording()
     except Exception as e:
         logger.warning(f"Could not save recording: {e}")
-    
-    # 7. Cleanup
+
     await browser_context.close()
     await browser.close()
     await playwright.stop()
-       
+
     final_result = "No result"
     if last_result and last_result.extracted_content:
         content = last_result.extracted_content
         match = re.search(r"'done':\s*\{(.*?)\}", content, re.DOTALL)
         if match:
             final_result = match.group(1).strip()
-            print("✅ Extracted final result :", final_result)
         else:
-            final_result = content.strip()  # fallback if regex doesn't match
+            final_result = content.strip()
     else:
         final_result = history.final_result() or "No result"
+    
+    if message_callback:
+        await message_callback("----------------------------")
+        await message_callback(f"✅ Task Complete: {final_result}")
 
     return {
         "task_id": task_id,
         "final_result": final_result
     }
+
     
     
 async def _initialize_llm(

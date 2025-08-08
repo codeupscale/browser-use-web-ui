@@ -27,7 +27,7 @@ class IntentClassifierOutput(BaseModel):
             }
 
         # 2. intent == False should not have a modified_prompt
-        if not self.intent and self.modified_prompt.strip():
+        if not self.intent and self.modified_prompt:
             return {
                 "is_valid": False,
                 "should_retry": True,

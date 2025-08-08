@@ -64,7 +64,9 @@ class AgentOrchestrator:
         extend_system_prompt: Any = None,
         planner_llm: Any = None,
         use_vision_for_planner: bool = False,
+        message_callback=None
     ):
+        
         self.llm = llm
         self.browser_config = browser_config
         self.use_vision = use_vision
@@ -78,6 +80,7 @@ class AgentOrchestrator:
         self.extend_system_prompt = extend_system_prompt
         self.planner_llm = planner_llm
         self.use_vision_for_planner = use_vision_for_planner
+        self.message_callback = message_callback
         self.client = OpenAI()
 
         self.builder = StateGraph(State)
@@ -144,9 +147,9 @@ class AgentOrchestrator:
         self.graph = self.builder.compile()
         self._store_graph_image(self.graph)
 
-    def intent_classifier(self, state: State) -> State:
+    async def intent_classifier(self, state: State) -> State:
         logger.info("\n\n INTENT CLASSIFIER NODE...\n")
-        output = IntentClassifierAgent(llm=self.llm, user_prompt=self.user_query).run_agent()
+        output =await IntentClassifierAgent(llm=self.llm, user_prompt=self.user_query,message_callback=self.message_callback).run_agent()
         state["intent_check"] = output.intent
         state["intent_agent_msg"] = output.agent_msg
 
@@ -159,9 +162,9 @@ class AgentOrchestrator:
         
         return state
 
-    def webpage_checker(self, state: State) -> State:
+    async def webpage_checker(self, state: State) -> State:
         logger.info("\n\n WEBPAGE CHECKER NODE...\n")
-        output = WebpageChecker(url=self.url).exists()
+        output =await WebpageChecker(url=self.url,message_callback=self.message_callback).exists()
         if output:
             logger.info("Webpage exists and is valid")
             state['webpage_msg'] = "Webpage exists and is valid"
@@ -194,11 +197,16 @@ class AgentOrchestrator:
         try:
             logger.info("Taking screenshot...")
             print(f"🌐 Navigating to URL: {self.url}")
+            if self.message_callback:
+                await self.message_callback("----------------------------")
+                await self.message_callback("📸 Starting screenshot agent.")
             
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
                 page = await browser.new_page()
-                await page.goto(self.url, timeout=60000, wait_until="networkidle")
+                await page.goto(self.url, timeout=100000, wait_until="networkidle")
+                if self.message_callback:
+                    await self.message_callback("✅ Page loaded successfully.")
                 print(f"✅ Page loaded successfully")
                 
                 #await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
@@ -210,6 +218,9 @@ class AgentOrchestrator:
                     await asyncio.sleep(1)
 
                 print(f"📸 Taking screenshot and saving to: {save_path}")
+                if self.message_callback:
+                   await self.message_callback("📸 Taking screenshot of the page...")
+
                 await page.screenshot(path=save_path, full_page=True)
                 await browser.close()
                 logger.info(f"Screenshot saved at: {save_path}")
@@ -218,18 +229,25 @@ class AgentOrchestrator:
                 if os.path.exists(save_path):
                     file_size = os.path.getsize(save_path)
                     print(f"✅ Screenshot saved successfully! Size: {file_size} bytes")
+                    if self.message_callback:
+                       await self.message_callback(f"✅ Screenshot saved successfully! Size: {file_size} bytes")
                     state["screenshot_taken"] = True
                 else:
-                    print(f"❌ Screenshot file not found at: {save_path}")
+                    if self.message_callback:
+                       await self.message_callback(f"❌ Screenshot file not found at: {save_path}")
                     state["screenshot_taken"] = False
         except Exception as e:
             logger.error(f"Error taking screenshot: {e}")
+            if self.message_callback:
+               await self.message_callback(f"❌ Error taking screenshot: {e}")
             state["screenshot_taken"] = False
-
+        await self.message_callback("----------------------------")
         return state    
     
-    def get_image_fileId(self, state: State) -> State:
+    async def get_image_fileId(self, state: State) -> State:
         logger.info("Extracting image file ID...")
+        if self.message_callback:
+            await self.message_callback("🖼️ Extracting image file ID...")
         try:
             # Paths for local development
             # with open("screenshot.png", "rb") as image_file:
@@ -244,27 +262,29 @@ class AgentOrchestrator:
             state["image_fileId"] = ""
         return state
 
-    def QA_possibility(self, state: State) -> State:
+    async def QA_possibility(self, state: State) -> State:
         logger.info("\n\n QA POSSIBILTY CHECKER AGENT...\n")
 
         user_prompt = state.get("prompt_without_ui", self.user_query)
-        output = QAPossibilityChecker(
+        output =await QAPossibilityChecker(
             llm=self.llm,
             user_prompt=user_prompt,
             image_file_id=state["image_fileId"],
+            message_callback=self.message_callback
         ).run_agent()
         state["QA_possibility_agent_msg"] = output.agent_msg
         state["QA_possibility_check"] = output.qa_possibility
         return state
 
-    def prompt_enhancer(self, state: State) -> State:
+    async def prompt_enhancer(self, state: State) -> State:
         logger.info("\n\n PROMPT ENHANCER AGENT...\n")
 
         user_prompt = state.get("prompt_without_ui", self.user_query)
-        output = PromptEnhancerAgent(
+        output =await PromptEnhancerAgent(
             llm=self.llm,
             user_prompt=user_prompt,
-            image_file_id=state['image_fileId']
+            image_file_id=state['image_fileId'],
+            message_callback=self.message_callback
         ).run_agent()
         state['enhanced_prompt_agent_msg'] = output.agent_msg
         state['enhanced_prompt'] = output.enhanced_prompt
@@ -273,11 +293,14 @@ class AgentOrchestrator:
         return state
 
     async def browser_ui(self, state: State) -> State:
+        if self.message_callback:
+            await self.message_callback("🧪 Browser UI Agent Started...")
+
         logger.info("\n\n BROWSER UI AGENT...\n")
         try:
             # Initialize BrowserUseAgent with all required parameters
             task = f"{state['enhanced_prompt']} URL: {self.url}"
-            logger.info("task to browser use agent: " ,task )
+            logger.info(f"task to browser use agent: {task}")
             browser_agent = BrowserUseAgent(
                 task=task,
                 llm=self.llm,
@@ -300,7 +323,9 @@ class AgentOrchestrator:
             
             # Run the browser agent
             result = await browser_agent.run(max_steps=25)
-            
+            if self.message_callback:
+               await self.message_callback("✅ Browser UI Agent Finished...")
+
             # Store the result in state
             state["browser_result"] = result
             return state
