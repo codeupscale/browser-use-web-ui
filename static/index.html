@@ -1,238 +1,255 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Next SQA AI - Live Browser Testing</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f9f9f9;
-      padding: 40px;
-      color: #333;
-      max-width: 1000px;
-      margin: auto;
-    }
-
-    h2 {
-      text-align: center;
-      color: #333;
-      margin-bottom: 30px;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    label {
-      font-weight: 500;
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 15px;
-      background-color: #fff;
-      box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
-    }
-
-    .buttons {
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-      margin-top: 10px;
-    }
-
-    button {
-      background-color: #007bff;
-      color: white;
-      padding: 10px 18px;
-      font-size: 15px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-
-    button:hover {
-      background-color: #0056b3;
-    }
-
-    button:disabled {
-      background-color: #6c757d;
-      cursor: not-allowed;
-    }
-
-    #live-browser-container {
-      margin-top: 40px;
-    }
-
-    #agent-status {
-      text-align: center;
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 5px;
-      background-color: #e9ecef;
-      font-weight: 500;
-    }
-
-    #error-message {
-      color: red;
-      text-align: center;
-      margin-top: 15px;
-    }
-
-    .vnc-container {
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      height: 700px;
-      width: 100%;
-    }
-
-    .status-running {
-      background-color: #d4edda !important;
-      color: #155724 !important;
-    }
-
-    .status-completed {
-      background-color: #d1ecf1 !important;
-      color: #0c5460 !important;
-    }
-
-    .status-error {
-      background-color: #f8d7da !important;
-      color: #721c24 !important;
-    }
-
-    #vnc-iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: none;
-      object-fit: contain;
-    }
-
-    #vnc-placeholder {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100%;
-      padding: 20px;
-      text-align: center;
-      color: #666;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>Next SQA AI - Live Browser Testing</title>
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #f9f9f9;
+    padding: 40px;
+    color: #333;
+    max-width: 1000px;
+    margin: auto;
+}
+h2 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 30px;
+}
+.form-group {
+    margin-bottom: 20px;
+}
+label {
+    font-weight: 500;
+    display: block;
+    margin-bottom: 6px;
+}
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 15px;
+    background-color: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+}
+.buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 10px;
+}
+button {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 18px;
+    font-size: 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+button:hover {
+    background-color: #0056b3;
+}
+button:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+#live-browser-container {
+    margin-top: 40px;
+}
+#agent-status {
+    text-align: center;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    background-color: #e9ecef;
+    font-weight: 500;
+}
+#error-message {
+    color: red;
+    text-align: center;
+    margin-top: 15px;
+}
+.vnc-container {
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    height: 700px;
+    width: 100%;
+}
+#vnc-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: none;
+    object-fit: contain;
+}
+#vnc-placeholder {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+#ws-messages {
+    margin-top: 30px;
+    padding: 15px;
+    background: #8dceee;
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: monospace;
+}
+.status-running {
+    background-color: #d4edda !important;
+    color: #155724 !important;
+}
+.status-completed {
+    background-color: #d1ecf1 !important;
+    color: #0c5460 !important;
+}
+.status-error {
+    background-color: #f8d7da !important;
+    color: #721c24 !important;
+}
+</style>
 </head>
-
 <body>
-  <h2>🧪 Live Browser Testing Agent</h2>
-
-  <div class="form-group">
+<h2>🧪 Live Browser Testing Agent</h2>
+<div class="form-group">
     <label for="query">Prompt:</label>
     <input type="text" id="query" placeholder="e.g. Test the login button" />
-  </div>
-
-  <div class="form-group">
+</div>
+<div class="form-group">
     <label for="url">Website URL:</label>
     <input type="text" id="url" placeholder="e.g. https://example.com" />
-  </div>
-
-  <div class="buttons">
-    <button onclick="submitTest()">Start Live Test</button>
+</div>
+<div class="buttons">
+    <button id="start-btn" onclick="submitTest()" disabled>Start Live Test</button>
     <button onclick="clearForm()">Clear</button>
     <button onclick="stopTest()">Stop</button>
-  </div>
-
-  <div id="error-message"></div>
-  <div id="agent-status">Ready to start testing...</div>
-
-  <div id="live-browser-container">
+</div>
+<div id="error-message"></div>
+<div id="agent-status">Connecting to WebSocket...</div>
+<div id="live-browser-container">
     <h3>Live Browser Interaction:</h3>
     <div class="vnc-container">
-      <div id="vnc-placeholder">
-        <p>🔄 Browser will appear here when agent starts...</p>
-        <p style="font-size: 14px; color: #999;">You'll see real-time automation happening!</p>
-        <p style="font-size: 12px; color: #ccc; margin-top: 20px;">
-          <strong>Instructions:</strong><br>
-          1. Enter your query and URL above<br>
-          2. Click "Start Live Test"<br>
-          3. Watch the browser automation happen live!
-        </p>
-      </div>
-      <iframe 
-        id="vnc-iframe" 
-        src="" 
-        allowfullscreen>
-      </iframe>
+        <div id="vnc-placeholder">
+            <p>🔄 Browser will appear here when agent starts...</p>
+            <p style="font-size: 14px; color: #999;">You'll see real-time automation happening!</p>
+            <p style="font-size: 12px; color: #ccc; margin-top: 20px;">
+                <strong>Instructions:</strong><br>
+                1. Enter your query and URL above<br>
+                2. Click "Start Live Test"<br>
+                3. Watch the browser automation happen live!
+            </p>
+        </div>
+        <iframe id="vnc-iframe" src="" allowfullscreen></iframe>
     </div>
-  </div>
+</div>
+<div id="ws-messages">
+    <strong>🧠 Agent Messages:</strong>
+    <ul id="messages-list" style="list-style: disc; margin-top: 10px;">
+        <li id="default-log-msg">Here are the logs of the test...</li>
+    </ul>
+</div>
+<script>
+let wsReady = false;
+let ws;
+const submitBtn = document.getElementById("start-btn");
+submitBtn.disabled = true; // Begin disabled until ws connects
 
-  <script>
-    async function submitTest() {
-      const queryInput = document.getElementById("query");
-      const urlInput = document.getElementById("url");
-      const errorDiv = document.getElementById("error-message");
-      const statusDiv = document.getElementById("agent-status");
-      const submitBtn = document.querySelector(".buttons button");
-      const vncIframe = document.getElementById("vnc-iframe");
-      const vncPlaceholder = document.getElementById("vnc-placeholder");
+function connectWebSocket() {
+    wsReady = false;
+    submitBtn.disabled = true;
+    const host = window.location.host;
+    ws = new WebSocket(`ws://${host}/ws`);
+    ws.onopen = function () {
+        wsReady = true;
+        submitBtn.disabled = false;
+        document.getElementById("agent-status").textContent = "WebSocket connected! Ready to test.";
+    };
+    ws.onclose = function () {
+        wsReady = false;
+        submitBtn.disabled = true;
+        document.getElementById("agent-status").textContent = "WebSocket disconnected, reconnecting...";
+        setTimeout(connectWebSocket, 1200); // try reconnect on drop
+    }
+    ws.onmessage = function (event) {
+        const list = document.getElementById("messages-list");
+        const item = document.createElement("li");
+        item.textContent = event.data;
+        list.appendChild(item);
+        list.scrollTop = list.scrollHeight;
+    };
+    ws.onerror = (err) => {
+        console.error("WebSocket error:", err);
+        ws.close();
+    }
+}
+connectWebSocket();
 
-      const query = queryInput.value.trim();
-      const url = urlInput.value.trim();
-
-      errorDiv.textContent = "";
-
-      if (!query || !url) {
+async function submitTest() {
+    if (!wsReady) {
+        alert("Waiting for websocket connection...please wait.");
+        return;
+    }
+    const queryInput = document.getElementById("query");
+    const urlInput = document.getElementById("url");
+    const errorDiv = document.getElementById("error-message");
+    const statusDiv = document.getElementById("agent-status");
+    const vncIframe = document.getElementById("vnc-iframe");
+    const vncPlaceholder = document.getElementById("vnc-placeholder");
+    const messageList = document.getElementById("messages-list");
+    const query = queryInput.value.trim();
+    const url = urlInput.value.trim();
+    errorDiv.textContent = "";
+    messageList.innerHTML = `<li id="default-log-msg">Here are the logs of the test...</li>`;
+    if (!query || !url) {
         errorDiv.textContent = "Both fields are required.";
         return;
-      }
-
-      // 🔒 Disable input fields and button
-      queryInput.disabled = true;
-      urlInput.disabled = true;
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Running...";
-      submitBtn.style.backgroundColor = "#6c757d";
-
-      // Show VNC viewer with proper configuration
-      statusDiv.textContent = "🔄 Starting browser...";
-      statusDiv.className = "status-running";
-      vncPlaceholder.style.display = "none";
-      vncIframe.style.display = "block";
-      
-      // Configure VNC with optimal settings for live viewing - full screen and better scaling
-      const vncUrl = "http://localhost:6080/vnc.html?autoconnect=true&resize=scale&password=youvncpassword&autoconnect=true&resize=scale&quality=6&compression=6&clipViewport=true&scaleViewport=true&reconnect=true&fullscreen=true&scale=1.0&fitMode=scale&viewOnly=false&showDotCursor=true&background=#000000";
-      vncIframe.src = vncUrl;
-
-      try {
+    }
+    // Disable form
+    queryInput.disabled = true;
+    urlInput.disabled = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Running...";
+    submitBtn.style.backgroundColor = "#6c757d";
+    // Show VNC
+    statusDiv.textContent = "🔄 Starting browser...";
+    statusDiv.className = "status-running";
+    vncPlaceholder.style.display = "none";
+    vncIframe.style.display = "block";
+    const vncUrl = "http://localhost:6080/vnc.html?autoconnect=true&resize=scale&password=youvncpassword&quality=6&compression=6&clipViewport=true&scaleViewport=true&reconnect=true&fullscreen=true&scale=1.0&fitMode=scale&viewOnly=false&showDotCursor=true&background=#000000";
+    vncIframe.src = vncUrl;
+    try {
         const response = await fetch("/run-agent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, url }),
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query, url }),
         });
-
         const result = await response.json();
         console.log("Agent result:", result);
-
         if (response.ok) {
-          statusDiv.textContent = "✅ Task completed! Check the browser above for results.";
-          statusDiv.className = "status-completed";
-          document.querySelector("#live-browser-container h3").textContent = "✅ Task Completed - Final Browser State:";
+            statusDiv.textContent = "✅ Task completed! Check the browser above for results.";
+            statusDiv.className = "status-completed";
+            document.querySelector("#live-browser-container h3").textContent = "✅ Task Completed - Final Browser State:";
         } else {
-          errorDiv.textContent = "Error: " + (result.detail || "Unknown error");
-          statusDiv.textContent = "❌ Task failed";
-          statusDiv.className = "status-error";
-          vncIframe.style.display = "none";
-          vncPlaceholder.style.display = "flex";
-          vncPlaceholder.innerHTML = "<p>❌ Task failed</p>";
+            errorDiv.textContent = "Error: " + (result.detail || "Unknown error");
+            statusDiv.textContent = "❌ Task failed";
+            statusDiv.className = "status-error";
+            vncIframe.style.display = "none";
+            vncPlaceholder.style.display = "flex";
+            vncPlaceholder.innerHTML = "<p>❌ Task failed</p>";
         }
-      } catch (err) {
+    } catch (err) {
         errorDiv.textContent = "Something went wrong. Please try again.";
         console.error("Fetch error:", err);
         statusDiv.textContent = "❌ Connection failed";
@@ -240,30 +257,25 @@
         vncIframe.style.display = "none";
         vncPlaceholder.style.display = "flex";
         vncPlaceholder.innerHTML = "<p>❌ Connection failed</p>";
-      }
-
-      // ✅ Restore button but keep inputs disabled
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Start Live Test";
-      submitBtn.style.backgroundColor = "#007bff";
     }
-
-    function clearForm() {
-      const queryInput = document.getElementById("query");
-      const urlInput = document.getElementById("url");
-      const vncIframe = document.getElementById("vnc-iframe");
-      const vncPlaceholder = document.getElementById("vnc-placeholder");
-      const statusDiv = document.getElementById("agent-status");
-
-      queryInput.value = "";
-      urlInput.value = "";
-      queryInput.disabled = false;
-      urlInput.disabled = false;
-
-      // Hide VNC viewer
-      vncIframe.style.display = "none";
-      vncPlaceholder.style.display = "flex";
-      vncPlaceholder.innerHTML = `
+    // Re-enable button
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Start Live Test";
+    submitBtn.style.backgroundColor = "#007bff";
+}
+function clearForm() {
+    const queryInput = document.getElementById("query");
+    const urlInput = document.getElementById("url");
+    const vncIframe = document.getElementById("vnc-iframe");
+    const vncPlaceholder = document.getElementById("vnc-placeholder");
+    const statusDiv = document.getElementById("agent-status");
+    queryInput.value = "";
+    urlInput.value = "";
+    queryInput.disabled = false;
+    urlInput.disabled = false;
+    vncIframe.style.display = "none";
+    vncPlaceholder.style.display = "flex";
+    vncPlaceholder.innerHTML = `
         <p>🔄 Browser will appear here when agent starts...</p>
         <p style="font-size: 14px; color: #999;">You'll see real-time automation happening!</p>
         <p style="font-size: 12px; color: #ccc; margin-top: 20px;">
@@ -271,26 +283,25 @@
           1. Enter your query and URL above<br>
           2. Click "Start Live Test"<br>
           3. Watch the browser automation happen live!
-        </p>
-      `;
-
-      document.getElementById("error-message").textContent = "";
-      document.querySelector("#live-browser-container h3").textContent = "Live Browser Interaction:";
-      statusDiv.textContent = "Ready to start testing...";
-      statusDiv.className = "";
-    }
-
-    function stopTest() {
-      fetch("/stop-agent", { method: "POST" })
+        </p>`;
+    document.getElementById("error-message").textContent = "";
+    document.getElementById("messages-list").innerHTML = "";
+    document.querySelector("#live-browser-container h3").textContent = "Live Browser Interaction:";
+    statusDiv.textContent = "Ready to start testing...";
+    statusDiv.className = "";
+    // Keep the websocket/connection as is on clear.
+}
+function stopTest() {
+    fetch("/stop-agent", { method: "POST" })
         .then(res => res.json())
         .then(data => {
-          alert(data.status || "Stopped.");
+            alert(data.status || "Stopped.");
         })
         .catch(err => {
-          console.error("Failed to stop:", err);
-          alert("Failed to stop the agent.");
+            console.error("Failed to stop:", err);
+            alert("Failed to stop the agent.");
         });
-    }
-  </script>
+}
+</script>
 </body>
 </html>

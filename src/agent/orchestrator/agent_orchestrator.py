@@ -204,10 +204,22 @@ class AgentOrchestrator:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
                 page = await browser.new_page()
-                await page.goto(self.url, timeout=100000, wait_until="networkidle")
+                
+                try:
+                    await page.goto(self.url, timeout=30000, wait_until="networkidle")
+                except Exception:
+                    print("Networkidle timed out! Try domcontentloaded.")
+                    await page.goto(self.url, timeout=30000, wait_until="domcontentloaded")
+                
                 if self.message_callback:
                     await self.message_callback("✅ Page loaded successfully.")
                 print(f"✅ Page loaded successfully")
+                
+                # Wait for 2 seconds to ensure proper page rendering
+                if self.message_callback:
+                    await self.message_callback("⏳ Waiting for page to render properly...")
+                print("⏳ Waiting for page to render properly...")
+                await asyncio.sleep(2)
                 
                 #await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 await asyncio.sleep(1)
@@ -299,7 +311,7 @@ class AgentOrchestrator:
         logger.info("\n\n BROWSER UI AGENT...\n")
         try:
             # Initialize BrowserUseAgent with all required parameters
-            task = f"{state['enhanced_prompt']} URL: {self.url}"
+            task = f"{state['enhanced_prompt']} \n\n THE URL: {self.url}"
             logger.info(f"task to browser use agent: {task}")
             browser_agent = BrowserUseAgent(
                 task=task,
@@ -322,7 +334,7 @@ class AgentOrchestrator:
             )
             
             # Run the browser agent
-            result = await browser_agent.run(max_steps=25)
+            result = await browser_agent.run(max_steps=100)
             if self.message_callback:
                await self.message_callback("✅ Browser UI Agent Finished...")
 

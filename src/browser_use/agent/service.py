@@ -188,7 +188,7 @@ class Agent(Generic[Context]):
 			'aria-expanded',
 			'data-date-format',
 		],
-		max_actions_per_step: int = 10,
+		max_actions_per_step: int = 25,
 		tool_calling_method: ToolCallingMethod | None = 'auto',
 		page_extraction_llm: BaseChatModel | None = None,
 		planner_llm: BaseChatModel | None = None,

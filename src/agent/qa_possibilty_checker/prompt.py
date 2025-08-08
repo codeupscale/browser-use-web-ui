@@ -27,9 +27,9 @@ If the QA test seems possible:
      "agent_msg": "QA is possible on the extracted Snippet"
      "qa_possibilty": true 
  }
- or 
+ or (if the QA test seems not possible always give a reason why QA failed appended in the agent_msg)
  {
-     "agent_msg": "QA is not possible on the extracted Snippet (give a proper reason)"
+     "agent_msg": "QA is not possible on the extracted Snippet"
      "qa_possibilty": false 
  }
 """
