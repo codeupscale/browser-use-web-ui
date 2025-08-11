@@ -9,5 +9,20 @@ langchain_mcp_adapters==0.0.9
 langgraph==0.3.34
 langchain-community
 langchain-ollama
+# FastAPI and web framework
 fastapi
-uvicorn[standard]
+uvicorn[standard]  # Includes websockets library automatically
+pydantic==2.10.6
+fastapi-mail==1.4.1
+# Database and authentication
+motor==3.4.0
+passlib[bcrypt]==1.7.4
+python-jose==3.3.0
+email-validator==2.1.1
+pymongo==4.5.0
+# Additional dependencies that might be needed
+python-multipart
+httpx
+requests
+pillow
+python-dotenv

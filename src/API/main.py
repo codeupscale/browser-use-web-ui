@@ -1,77 +1,128 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, FileResponse
 import os
+import uvicorn
+from pathlib import Path
 
-from src.webui.components.browser_use_agent_tab import run_agent_task
+# Import API routers
+from .Ai_Testing.routes import router as ai_testing_router
+from .Users.routes import router as users_router
 from src.websocket.websocket_manager import WebSocketManager
 
-app = FastAPI()
+# Create FastAPI app
+app = FastAPI(
+    title="Browser Use AI Agent API",
+    description="API for browser automation and AI agent tasks",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Configure this properly for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-manager = WebSocketManager()
 
 # Mount static files
-app.mount("/static", StaticFiles(directory=os.getcwd()), name="static")
+static_path = Path(__file__).parent.parent.parent / "static"
+app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
-# Set display environment for Docker (headless)
-if not os.getenv("DISPLAY"):
-    os.environ["DISPLAY"] = ":99"
+# Initialize WebSocket manager
+manager = WebSocketManager()
 
+# Set the WebSocket manager in the services
+from .Ai_Testing.services import set_websocket_manager
+set_websocket_manager(manager)
 
-# 🧠 Request body model
-class AgentRequest(BaseModel):
-    query: str
-    url: str
+# Include API routers
+app.include_router(ai_testing_router, prefix="/agent-api", tags=["AI Testing"])
+app.include_router(users_router, prefix="/users", tags=["Users"])
 
-
-# 🎯 Run agent task and send logs via WebSocket
-@app.post("/run-agent")
-
-async def run_agent(request: AgentRequest):
-    try:
-        print(f"🔄 Starting agent with DISPLAY={os.getenv('DISPLAY')}")
-
-        async def message_callback(message: str):
-            await manager.send_message(message)
-
-        result = await run_agent_task(request.query, request.url, message_callback=message_callback)
-
-        return {
-            "status": "success",
-            "task_id": result["task_id"],
-            "final_result": result["final_result"]
-        }
-    except Exception as e:
-        print(f"❌ Agent error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ⛔ Optional Stop Agent
-@app.post("/stop-agent")
-def stop_agent():
-    return {"status": "stopped"}
-
-
-# 🌐 Serve frontend
-@app.get("/")
-async def serve_frontend():
-    return FileResponse("static/index.html")
-
-
+# WebSocket endpoint
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
             await websocket.receive_text()  # keep alive
-    except:
+    except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "browser-use-ai-agent"}
+
+# Root endpoint that serves the custom HTML interface
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    index_path = static_path / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    else:
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Browser Use AI Agent</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                .container { max-width: 800px; margin: 0 auto; }
+                .button { display: inline-block; padding: 12px 24px; margin: 10px; 
+                         background-color: #007bff; color: white; text-decoration: none; 
+                         border-radius: 5px; }
+                .button:hover { background-color: #0056b3; }
+                .api-button { background-color: #28a745; }
+                .api-button:hover { background-color: #1e7e34; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🚀 Browser Use AI Agent</h1>
+                <p>Welcome to the Browser Use AI Agent platform. Choose your interface:</p>
+                
+                <div>
+                    <a href="http://localhost:7788" class="button">🎨 Web UI (Port 7788)</a>
+                    <a href="http://localhost:8000/docs" class="button api-button">📚 API Documentation (Port 8000)</a>
+                </div>
+                
+                <h2>Available Services:</h2>
+                <ul>
+                    <li><strong>Web UI:</strong> Interactive HTML interface for browser automation</li>
+                    <li><strong>API:</strong> RESTful API endpoints for programmatic access</li>
+                    <li><strong>Swagger Docs:</strong> Interactive API documentation</li>
+                </ul>
+            </div>
+        </body>
+        </html>
+        """
+
+# API info endpoint
+@app.get("/api/info")
+async def api_info():
+    return {
+        "name": "Browser Use AI Agent API",
+        "version": "1.0.0",
+        "description": "API for browser automation and AI agent tasks",
+        "endpoints": {
+            "ui": "http://localhost:7788",
+            "api_docs": "http://localhost:7788/docs",
+            "health": "http://localhost:7788/health",
+            "ai_testing": "http://localhost:7788/agent-api",
+            "users": "http://localhost:7788/users"
+        }
+    }
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "src.API.main:app",
+        host="0.0.0.0",
+        port=7788,
+        reload=True
+    ) 

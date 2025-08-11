@@ -60,7 +60,10 @@ services:
       - RESOLUTION=${RESOLUTION:-1920x1080x24}
       - RESOLUTION_WIDTH=${RESOLUTION_WIDTH:-1920}
       - RESOLUTION_HEIGHT=${RESOLUTION_HEIGHT:-1080}
-
+      - MONGO_URI=${MONGO_URI:-mongodb+srv://ahmadejaz:vqmo0gx3zjgXO6IA@test.k8vg9mm.mongodb.net/nextsqa_db}
+      - MONGODB_URI=${MONGODB_URI:-mongodb+srv://ahmadejaz:vqmo0gx3zjgXO6IA@test.k8vg9mm.mongodb.net/nextsqa_db}
+      - MONGO_DB_NAME=${MONGO_DB_NAME:-nextsqa_db}
+      - DB_NAME=${DB_NAME:-nextsqa_db}
       # VNC Settings
       - VNC_PASSWORD=${VNC_PASSWORD:-youvncpassword}
       
