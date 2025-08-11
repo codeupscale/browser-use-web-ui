@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 from pydantic import BaseModel
 
 class PromptEnhancerOutput(BaseModel):
@@ -18,6 +18,16 @@ class PromptEnhancerOutput(BaseModel):
         prompt_lower = self.enhanced_prompt.lower()
         contains_blocked = any(kw in prompt_lower for kw in blocking_keywords)
 
+        # 1. agent_msg should not be empty
+        if not self.agent_msg.strip():
+            return {
+                "is_valid": False,
+                "should_retry": True,
+                "error": "Missing agent_msg.",
+                "retry_prompt": "Please include a valid agent_msg explaining the prompt enhancement."
+            }
+
+        # 2. Check if enhanced prompt contains non-functional QA terms
         if contains_blocked:
             return {
                 "is_valid": False,
@@ -26,7 +36,7 @@ class PromptEnhancerOutput(BaseModel):
                 "retry_prompt": "Remove references to UI, design, or animations. Focus only on functionality testing."
             }
 
-        # ✅ Valid if no blocking keywords found
+        # ✅ All is valid
         return {
             "is_valid": True,
             "should_retry": False,

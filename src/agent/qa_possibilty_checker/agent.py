@@ -31,23 +31,37 @@ class QAPossibilityChecker:
 
         if self.message_callback:
             await self.message_callback("----------------------------")
-            await self.message_callback(" 🟢 START: QAPossibility checker Agent Started... ")
+            await self.message_callback(" 🟢 START: QA Possibility Checker Agent (with Intent Classification) Started... ")
             await self.message_callback(f"📥 User Input: {self.user_prompt} and image_file_id: {self.image_file_id}")
 
-        output =await run_main_agent(
+        output = await run_main_agent(
             output_pydantic_class=self.output_pydantic_class,
-            agents_name="QA POSSIBILTY CHECKER",
+            agents_name="QA POSSIBILITY CHECKER",
             agents_prompt=self.agent_prompt,
             input_to_prompt={
-            "input": self.user_prompt,
-            "image_file_id": self.image_file_id
+                "user_prompt": self.user_prompt,
+                "image_file_id": self.image_file_id
             },
             model_name=self.llm,
             message_callback=self.message_callback
         )
 
+        # Log the intent classification and QA possibility results
         if self.message_callback:
+            if not output.intent:
+                await self.message_callback(f"❌ Intent Classification: Query not QA-related")
+                await self.message_callback(f"💬 Reason: {output.agent_msg}")
+            elif output.intent and not output.qa_possibility:
+                await self.message_callback(f"✅ Intent Classification: QA-related query detected")
+                await self.message_callback(f"❌ QA Possibility: Not possible on this snippet")
+                await self.message_callback(f"💬 Reason: {output.agent_msg}")
+            else:
+                await self.message_callback(f"✅ Intent Classification: QA-related query detected")
+                await self.message_callback(f"✅ QA Possibility: Possible on this snippet")
+                await self.message_callback(f"💬 Message: {output.agent_msg}")
+            
             await self.message_callback("QA Possibility Checker is finished.")
             await self.message_callback("----------------------------") 
-        logger.info(f"QA Possibilty Checker finished Output...: {output}")
+        
+        logger.info(f"QA Possibility Checker finished. Intent: {output.intent}, QA Possibility: {output.qa_possibility}, Message: {output.agent_msg}")
         return output

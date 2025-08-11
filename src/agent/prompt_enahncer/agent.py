@@ -17,10 +17,10 @@ class PromptEnhancerAgent:
 
     async def run_agent(self) -> PromptEnhancerOutput: 
         if self.message_callback:
-            await self.message_callback(" 🟢 START:  Prompt Enhanced Agent ")
+            await self.message_callback(" 🟢 START:  Prompt Enhancer Agent ")
             await self.message_callback(f"📥 User Input: {self.user_prompt}")
 
-        output =await run_main_agent(
+        output = await run_main_agent(
             output_pydantic_class=self.output_pydantic_class,
             agents_name="Prompt Enhancer Agent",
             agents_prompt=self.agent_prompt,
@@ -31,8 +31,11 @@ class PromptEnhancerAgent:
             model_name=self.llm,
             message_callback=self.message_callback
         )
+        
         if self.message_callback:
-            await self.message_callback(" Prompt Enhanced Agent is finished.")
+            await self.message_callback(f"📝 Enhanced Prompt: {output.enhanced_prompt}")
+            await self.message_callback(" Prompt Enhancer Agent is finished.")
             await self.message_callback("----------------------------")
-        logger.info(f"Prompt Enhancers Agent finished...")
+        
+        logger.info(f"Prompt Enhancer Agent finished. Enhanced Prompt: {output.enhanced_prompt}")
         return output

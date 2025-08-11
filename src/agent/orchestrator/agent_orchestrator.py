@@ -3,17 +3,13 @@ from langgraph.graph import StateGraph, START, END
 import os
 from typing import TypedDict, Any, Dict
 from browser_use.agent.views import AgentHistoryList
-
-from src.agent.intent_classifier.agent import IntentClassifierAgent
 from src.webpage.webpage_checker import WebpageChecker
-from src.agent.snippet_extractor.agent import SnippetExtractorAgent
 from src.agent.qa_possibilty_checker.agent import QAPossibilityChecker
 from src.agent.prompt_enahncer.agent import PromptEnhancerAgent
 from src.agent.browser_use.browser_use_agent import BrowserUseAgent
 import asyncio
 from playwright.async_api import async_playwright
 from openai import OpenAI
-
 
 
 
@@ -26,6 +22,7 @@ class State(TypedDict):
     browser_context: Any
     controller: Any
 
+    # Intent classification fields (now handled by QA possibility checker)
     intent_check: bool
     intent_agent_msg: str
     prompt_without_ui: str
@@ -85,26 +82,14 @@ class AgentOrchestrator:
 
         self.builder = StateGraph(State)
 
-        self.builder.add_node("intent_classifier", self.intent_classifier)
         self.builder.add_node("webpage_checker", self.webpage_checker)
-        # self.builder.add_node("snippet_extractor", self.snippet_extractor)
         self.builder.add_node("take_screenshot", self.take_screenshot)
         self.builder.add_node("get_image_fileId", self.get_image_fileId)
         self.builder.add_node("QA_possibility", self.QA_possibility)
         self.builder.add_node("prompt_enhancer", self.prompt_enhancer)
         self.builder.add_node("browser_ui", self.browser_ui)
 
-
-        self.builder.add_edge(START, "intent_classifier")
-
-        self.builder.add_conditional_edges(
-            "intent_classifier",
-            self._intent_condition,
-            {
-                "webpage_checker": "webpage_checker",
-                "__end__": END
-            }
-        )
+        self.builder.add_edge(START, "webpage_checker")
 
         self.builder.add_conditional_edges(
             "webpage_checker",
@@ -141,26 +126,21 @@ class AgentOrchestrator:
             }
         )
 
-        self.builder.add_edge("prompt_enhancer", "browser_ui")
+        # Add conditional edge for prompt_enhancer to handle intent classification
+        self.builder.add_conditional_edges(
+            "prompt_enhancer",
+            self._prompt_enhancer_condition,
+            {
+                "browser_ui": "browser_ui",
+                "__end__": END
+            }
+        )
+
         self.builder.add_edge("browser_ui", END)
 
         self.graph = self.builder.compile()
         self._store_graph_image(self.graph)
 
-    async def intent_classifier(self, state: State) -> State:
-        logger.info("\n\n INTENT CLASSIFIER NODE...\n")
-        output =await IntentClassifierAgent(llm=self.llm, user_prompt=self.user_query,message_callback=self.message_callback).run_agent()
-        state["intent_check"] = output.intent
-        state["intent_agent_msg"] = output.agent_msg
-
-        new_intent_prompt = self._get_output_value(output, "modified_prompt", "")
-        if new_intent_prompt:
-            logger.info(f"Modified user query: {new_intent_prompt}")
-            state["prompt_without_ui"] = new_intent_prompt
-        else:
-            logger.info("No modifications made to the user query.")
-        
-        return state
 
     async def webpage_checker(self, state: State) -> State:
         logger.info("\n\n WEBPAGE CHECKER NODE...\n")
@@ -275,29 +255,69 @@ class AgentOrchestrator:
         return state
 
     async def QA_possibility(self, state: State) -> State:
-        logger.info("\n\n QA POSSIBILTY CHECKER AGENT...\n")
+        logger.info("\n\n QA POSSIBILITY CHECKER AGENT (with Intent Classification)...\n")
 
-        user_prompt = state.get("prompt_without_ui", self.user_query)
-        output =await QAPossibilityChecker(
-            llm=self.llm,
-            user_prompt=user_prompt,
-            image_file_id=state["image_fileId"],
-            message_callback=self.message_callback
-        ).run_agent()
-        state["QA_possibility_agent_msg"] = output.agent_msg
-        state["QA_possibility_check"] = output.qa_possibility
-        return state
+        try:
+            user_prompt = state.get("prompt_without_ui", self.user_query)
+            print(f"Running QA possibility checker with user_prompt: {user_prompt}")
+            print(f"Image file ID: {state.get('image_fileId', 'NOT SET')}")
+            
+            output = await QAPossibilityChecker(
+                llm=self.llm,
+                user_prompt=user_prompt,
+                image_file_id=state["image_fileId"],
+                message_callback=self.message_callback
+            ).run_agent()
+            
+            print(f"QA possibility output: {output}")
+            print(f"Output type: {type(output)}")
+            print(f"Output attributes: {dir(output)}")
+            
+            # Handle intent classification (now part of QA possibility checker)
+            state["intent_check"] = output.intent
+            state["intent_agent_msg"] = output.agent_msg
+
+            print(f"Intent: {state['intent_check']}, QA Possibility: {state.get('QA_possibility_check', 'NOT SET')}")
+            
+            # Handle modified prompt from intent classification
+            new_intent_prompt = self._get_output_value(output, "modified_prompt", "")
+            if new_intent_prompt:
+                logger.info(f"Modified user query: {new_intent_prompt}")
+                state["prompt_without_ui"] = new_intent_prompt
+            
+            # Handle QA possibility
+            state["QA_possibility_agent_msg"] = output.agent_msg
+            state["QA_possibility_check"] = output.qa_possibility
+
+            print(f"Intent: {state['intent_check']}, QA Possibility: {state['QA_possibility_check']}")
+            print(f"State after QA possibility: {state}")
+            
+            logger.info(f"\n\nIntent: {state['intent_check']}, QA Possibility: {state['QA_possibility_check']}")
+            return state
+            
+        except Exception as e:
+            logger.error(f"Error in QA possibility checker: {e}")
+            import traceback
+            traceback.print_exc()
+            # Set default values in case of error
+            state["intent_check"] = False
+            state["intent_agent_msg"] = f"Error in QA possibility checker: {e}"
+            state["QA_possibility_agent_msg"] = f"Error in QA possibility checker: {e}"
+            state["QA_possibility_check"] = False
+            return state
 
     async def prompt_enhancer(self, state: State) -> State:
         logger.info("\n\n PROMPT ENHANCER AGENT...\n")
 
         user_prompt = state.get("prompt_without_ui", self.user_query)
-        output =await PromptEnhancerAgent(
+        output = await PromptEnhancerAgent(
             llm=self.llm,
             user_prompt=user_prompt,
             image_file_id=state['image_fileId'],
             message_callback=self.message_callback
         ).run_agent()
+        
+        # Handle enhanced prompt
         state['enhanced_prompt_agent_msg'] = output.agent_msg
         state['enhanced_prompt'] = output.enhanced_prompt
 
@@ -360,7 +380,29 @@ class AgentOrchestrator:
         return "QA_possibility" if state.get("image_fileId") else END
 
     def _QA_possibility_condition(self, state: State) -> Any:
-        return "prompt_enhancer" if state.get("QA_possibility_check") else END
+        # Check if intent is true and QA is possible
+        # If intent is false, stop the flow with error message
+        intent_check = state.get("intent_check", False)
+        qa_possibility_check = state.get("QA_possibility_check", False)
+        
+        print(f"QA possibility condition check - Intent: {intent_check}, QA Possibility: {qa_possibility_check}")
+        
+        if not intent_check:
+            # Intent is not related to QA, stop the flow
+            print("Stopping flow: Intent is not QA-related")
+            return END
+        elif intent_check and qa_possibility_check:
+            # Intent is true and QA is possible, continue to prompt enhancer
+            print("Continuing to prompt enhancer: Intent and QA possibility both true")
+            return "prompt_enhancer"
+        else:
+            # Intent is true but QA is not possible, stop the flow
+            print("Stopping flow: Intent is QA-related but QA is not possible")
+            return END
+
+    def _prompt_enhancer_condition(self, state: State) -> Any:
+        # Check if enhanced prompt exists
+        return "browser_ui" if state.get("enhanced_prompt") else END
 
     async def run(self, task: str, browser: Any = None, browser_context: Any = None, controller: Any = None) -> AgentHistoryList:
         try:
@@ -374,11 +416,117 @@ class AgentOrchestrator:
             
             final_state = await self.graph.ainvoke(initial_state)
             
-            # Create a base state dictionary with default values
+            # Check if intent classification or QA possibility failed
+            intent_check = final_state.get("intent_check", False)
+            intent_msg = final_state.get("intent_agent_msg", "")
+            qa_possibility_check = final_state.get("QA_possibility_check", False)
+            
+            if not intent_check:
+                # Intent is not related to QA, return error message
+                current_state = {
+                    "intent_classification": {
+                        "intent": False,
+                        "message": intent_msg or "Intent is not related to QA testing"
+                    },
+                    "webpage_check": {
+                        "check": final_state.get("webpage_check", False),
+                        "message": final_state.get("webpage_msg", "")
+                    },
+                    "snippet_extraction": {
+                        "check": False,
+                        "message": "",
+                        "snippet": ""
+                    },
+                    "qa_possibility": {
+                        "check": False,
+                        "message": "No QA possibility check needed - intent not QA-related"
+                    },
+                    "enhanced_prompt": {
+                        "prompt": "",
+                        "message": "No prompt enhancement needed - intent not QA-related"
+                    },
+                    "evaluation_previous_goal": "Intent classification failed",
+                    "memory": "Task stopped due to non-QA intent",
+                    "next_goal": "Task stopped"
+                }
+                
+                return AgentHistoryList(
+                    history=[
+                        {
+                            "model_output": {
+                                "current_state": current_state,
+                                "action": []
+                            },
+                            "result": [{
+                                "is_done": True,
+                                "success": False,
+                                "extracted_content": f"Error: {intent_msg or 'Intent is not related to QA testing. Please provide a QA-related query.'}"
+                            }],
+                            "state": {
+                                "title": "",
+                                "tabs": [],
+                                "interacted_element": [],
+                                "url": self.url
+                            }
+                        }
+                    ]
+                )
+            elif intent_check and not qa_possibility_check:
+                # Intent is QA-related but QA is not possible on the snippet
+                current_state = {
+                    "intent_classification": {
+                        "intent": True,
+                        "message": intent_msg
+                    },
+                    "webpage_check": {
+                        "check": final_state.get("webpage_check", False),
+                        "message": final_state.get("webpage_msg", "")
+                    },
+                    "snippet_extraction": {
+                        "check": False,
+                        "message": "",
+                        "snippet": ""
+                    },
+                    "qa_possibility": {
+                        "check": False,
+                        "message": final_state.get("QA_possibility_agent_msg", "")
+                    },
+                    "enhanced_prompt": {
+                        "prompt": "",
+                        "message": "No prompt enhancement needed - QA not possible on snippet"
+                    },
+                    "evaluation_previous_goal": "QA possibility check failed",
+                    "memory": "Task stopped due to QA not being possible on the snippet",
+                    "next_goal": "Task stopped"
+                }
+                
+                return AgentHistoryList(
+                    history=[
+                        {
+                            "model_output": {
+                                "current_state": current_state,
+                                "action": []
+                            },
+                            "result": [{
+                                "is_done": True,
+                                "success": False,
+                                "extracted_content": f"Error: {final_state.get('QA_possibility_agent_msg', 'QA is not possible on the extracted snippet.')}"
+                            }],
+                            "state": {
+                                "title": "",
+                                "tabs": [],
+                                "interacted_element": [],
+                                "url": self.url
+                            }
+                        }
+                    ]
+                )
+            
+            # Create a base state dictionary with default values for successful execution
             current_state = {
                 "intent_classification": {
-                    "intent": final_state.get("intent_check", False),
-                    "message": final_state.get("intent_agent_msg", "")
+                    "intent": intent_check,
+                    "message": intent_msg
                 },
                 "webpage_check": {
                     "check": final_state.get("webpage_check", False),
@@ -409,15 +557,10 @@ class AgentOrchestrator:
                             "current_state": current_state,
                             "action": []  # Empty list for actions
                         },
-                        # "result": [{
-                        #     "type": "success",
-                        #     "message": final_state.get("browser_result", "Task completed successfully")
-                        # }],
                         "result": [{
                             "is_done": True,
                             "success": True,
                             "extracted_content": str(final_state.get("browser_result", "Task completed successfully"))
-
                         }],
                         "state": {
                             "title": "",

@@ -35,9 +35,7 @@ from src.agent.browser_use.browser_use_agent import BrowserUseAgent
 from src.browser.custom_browser import CustomBrowser
 from src.controller.custom_controller import CustomController
 from src.utils.mcp_client import setup_mcp_client_and_tools
-from src.agent.intent_classifier.agent import IntentClassifierAgent
 from src.webpage.webpage_checker import WebpageChecker
-from src.agent.snippet_extractor.agent import SnippetExtractorAgent
 from src.agent.qa_possibilty_checker.agent import QAPossibilityChecker
 from src.agent.prompt_enahncer.agent import PromptEnhancerAgent
 
@@ -380,15 +378,6 @@ class DeepResearchState(TypedDict):
 
 # --- Langgraph Nodes ---
 
-def intent_classifier(state: DeepResearchState) -> DeepResearchState:
-    logger.info("\n\n INTENT CLASSIFIER NODE...\n")
-        
-    output = IntentClassifierAgent(state["user_query"]).run_agent()
-    state["intent_check"] = output.intent
-    state["inten_agent_msg"] = output.agent_msg
-        
-    return state # return the states values to continue the graph
-    
 def webpage_checker(state: DeepResearchState) -> DeepResearchState:
     logger.info("\n\n WEBPAGE CHECKER NODE...\n")
     output = WebpageChecker(state["url"]).exists()
@@ -440,15 +429,6 @@ def prompt_enhancer(state: DeepResearchState) -> DeepResearchState:
 
 # --- langgraph edges ---
 
-def _intent_condition(state: DeepResearchState):
-        # this is our intent conditional edge 
-    intent_check = state.get("intent_check")
-    if intent_check:  # if true then we continue to snippet_extractor
-        return "webpage_checker"  # if intent is not QA related, check webpage
-    else:
-        return "end_run"  # if intent is not QA related, end the graph
-    
-    
 def _webpage_condition(state: DeepResearchState):
         # this is our intent conditional edge 
     webpage_check = state.get("webpage_check")
@@ -1192,7 +1172,6 @@ class DeepResearchAgent:
         workflow = StateGraph(DeepResearchState)
 
         # Add nodes
-        workflow.add_node("intent_classifier", intent_classifier)
         workflow.add_node("webpage_checker", webpage_checker)
         workflow.add_node("snippet_extractor", snippet_extractor)
         workflow.add_node("QA_possibility", QA_possibility)
@@ -1206,17 +1185,8 @@ class DeepResearchAgent:
         )  # Simple end node
 
         # Define edges
-        workflow.set_entry_point("intent_classifier")
+        workflow.set_entry_point("webpage_checker")
 
-        workflow.add_conditional_edges(
-            "intent_classifier",
-          _intent_condition,
-            {
-                "webpage_checker": "webpage_checker",
-               "end_run": "end_run"
-            }
-        )
-            
         workflow.add_conditional_edges(
             "webpage_checker",
             _webpage_condition,
