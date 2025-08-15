@@ -64,7 +64,7 @@ async def run_agent_work(query,url, user):
             if manager:
                 await manager.send_message(message)
 
-        result =await run_agent_task(query,url, message_callback=message_callback)
+        result = await run_agent_task(query,url, message_callback=message_callback)
         print(result)  
         # Simulate running the agent task
        # db["agent_tasks"].update_one({"_id": i_id.inserted_id}, {"$set": {"result": result , "updated_at": datetime.now(timezone.utc)}})
