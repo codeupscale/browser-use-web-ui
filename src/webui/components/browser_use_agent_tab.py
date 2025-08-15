@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import uuid
-from src.models import AIModel
+from models.models import AIModel
 from typing import Any, AsyncGenerator, Dict, Optional
 import os, time
 from browser_use.agent.views import (
