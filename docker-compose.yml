@@ -12,6 +12,7 @@ services:
       - "6080:6080"
       - "5901:5901"
       - "9222:9222"
+      - "8000:8000"
     environment:
       # LLM API Keys & Endpoints
       - OPENAI_ENDPOINT=${OPENAI_ENDPOINT:-https://api.openai.com/v1}
@@ -42,13 +43,6 @@ services:
       # Application Settings
       - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-false}
       - BROWSER_USE_LOGGING_LEVEL=${BROWSER_USE_LOGGING_LEVEL:-info}
-
-      # # Email Settings (read from .env if present)
-      # - EMAIL_USERNAME=${EMAIL_USERNAME:-}
-      # - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
-      # - EMAIL_FROM=${EMAIL_FROM:-noreply@example.com}
-      # - SMTP_PORT=${SMTP_PORT:-587}
-      # - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
 
       # Browser Settings
       - BROWSER_PATH=
