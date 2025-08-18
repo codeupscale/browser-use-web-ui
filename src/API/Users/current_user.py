@@ -3,7 +3,10 @@ from dotenv import load_dotenv
 import os
 from fastapi import  Depends, HTTPException
 from jose import jwt, JWTError
-load_dotenv()
+from ..utils.env_loader import load_env_from_root
+
+# Load environment variables from the root .env file
+load_env_from_root()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 security = HTTPBearer()

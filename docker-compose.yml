@@ -43,6 +43,13 @@ services:
       - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-false}
       - BROWSER_USE_LOGGING_LEVEL=${BROWSER_USE_LOGGING_LEVEL:-info}
 
+      # # Email Settings (read from .env if present)
+      # - EMAIL_USERNAME=${EMAIL_USERNAME:-}
+      # - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
+      # - EMAIL_FROM=${EMAIL_FROM:-noreply@example.com}
+      # - SMTP_PORT=${SMTP_PORT:-587}
+      # - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
+
       # Browser Settings
       - BROWSER_PATH=
       - BROWSER_USER_DATA=
@@ -75,6 +82,8 @@ services:
       # - ./my_chrome_data:/app/data/chrome_data # Optional: persist browser data
       # Mount output directory for saving screenshots, videos, and agent data
       - ./src/outputdata:/app/src/outputdata
+      # Mount the single root .env so load_dotenv can read it inside the container
+      - ./.env:/app/.env:ro
     restart: unless-stopped
     shm_size: '2gb'
     cap_add:

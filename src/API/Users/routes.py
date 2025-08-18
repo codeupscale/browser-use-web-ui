@@ -25,8 +25,10 @@ import logging
 from jose import jwt, JWTError
 import os
 from dotenv import load_dotenv
+from ..utils.env_loader import load_env_from_root
 
-load_dotenv()
+# Load environment variables from the root .env file
+load_env_from_root()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 

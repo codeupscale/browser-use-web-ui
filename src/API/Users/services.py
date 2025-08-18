@@ -10,9 +10,10 @@ from .schemas import UserCreate
 from dotenv import load_dotenv
 from ..db.db_connection import get_db, close_db
 from ..core.security import validate_password_strength, verify_reset_token, send_password_reset_otp, verify_password_reset_otp
+from ..utils.env_loader import load_env_from_root
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from the root .env file
+load_env_from_root()
 
 # Configuration constants loaded from environment variables
 SECRET_KEY = os.getenv("SECRET_KEY")

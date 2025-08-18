@@ -10,12 +10,14 @@ from ..Users.models import UserModel
 import re, os
 from fastapi import HTTPException
 from dotenv import load_dotenv
+from ..utils.env_loader import load_env_from_root
 
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 
 
 from dateutil import parser
-load_dotenv()
+# Load environment variables from the root .env file
+load_env_from_root()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 RESET_TOKEN_EXPIRE_MINUTES = int(os.getenv("RESET_TOKEN_EXPIRE_MINUTES", "300"))
@@ -25,7 +27,10 @@ EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@example.com")
 EMAIL_PORT = int(os.getenv("SMTP_PORT", "587"))
 EMAIL_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 
-conf = ConnectionConfig(
+# Only create ConnectionConfig if email credentials are available
+conf = None
+if EMAIL_USERNAME and EMAIL_PASSWORD:
+    conf = ConnectionConfig(
         MAIL_USERNAME=EMAIL_USERNAME,
         MAIL_PASSWORD=EMAIL_PASSWORD,
         MAIL_FROM=EMAIL_FROM,

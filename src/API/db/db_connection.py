@@ -5,12 +5,13 @@ from fastapi import HTTPException
 import logging
 from dotenv import load_dotenv
 import os
+from ..utils.env_loader import load_env_from_root
 
 # Logger setup
 logger = logging.getLogger("db_connection")
 
-# Load environment variables
-load_dotenv('/app/.env')
+# Load environment variables from the root .env file
+load_env_from_root()
 
 # MongoDB connection settings
 SECRET_KEY = os.getenv("SECRET_KEY")
