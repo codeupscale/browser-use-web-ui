@@ -12,6 +12,7 @@ services:
       - "6080:6080"
       - "5901:5901"
       - "9222:9222"
+      - "8000:8000"
     environment:
       # LLM API Keys & Endpoints
       - OPENAI_ENDPOINT=${OPENAI_ENDPOINT:-https://api.openai.com/v1}
@@ -60,7 +61,10 @@ services:
       - RESOLUTION=${RESOLUTION:-1920x1080x24}
       - RESOLUTION_WIDTH=${RESOLUTION_WIDTH:-1920}
       - RESOLUTION_HEIGHT=${RESOLUTION_HEIGHT:-1080}
-
+      - MONGO_URI=${MONGO_URI:-mongodb+srv://ahmadejaz:vqmo0gx3zjgXO6IA@test.k8vg9mm.mongodb.net/nextsqa_db}
+      - MONGODB_URI=${MONGODB_URI:-mongodb+srv://ahmadejaz:vqmo0gx3zjgXO6IA@test.k8vg9mm.mongodb.net/nextsqa_db}
+      - MONGO_DB_NAME=${MONGO_DB_NAME:-nextsqa_db}
+      - DB_NAME=${DB_NAME:-nextsqa_db}
       # VNC Settings
       - VNC_PASSWORD=${VNC_PASSWORD:-youvncpassword}
       
@@ -72,6 +76,8 @@ services:
       # - ./my_chrome_data:/app/data/chrome_data # Optional: persist browser data
       # Mount output directory for saving screenshots, videos, and agent data
       - ./src/outputdata:/app/src/outputdata
+      # Mount the single root .env so load_dotenv can read it inside the container
+      - ./.env:/app/.env:ro
     restart: unless-stopped
     shm_size: '2gb'
     cap_add:

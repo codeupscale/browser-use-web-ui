@@ -69,6 +69,7 @@ class BrowserUseAgent(Agent):
 
             # Execute initial actions if provided
             if self.initial_actions:
+                logger.info(f"Initial actions: {self.initial_actions}")
                 result = await self.multi_act(self.initial_actions, check_for_new_elements=False)
                 self.state.last_result = result
 

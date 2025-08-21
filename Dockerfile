@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     unzip \
     xvfb \
-    libgconf-2-4 \
+   # libgconf-2-4 \
     libxss1 \
     libnss3 \
     libnspr4 \
@@ -96,7 +96,7 @@ RUN mkdir -p $PLAYWRIGHT_BROWSERS_PATH
 # RUN playwright install chrome --with-deps
 
 # Alternative: Install Chromium if Google Chrome is problematic in certain environments
-RUN playwright install chromium --with-deps
+RUN playwright install chromium 
 
 
 # Copy the application code

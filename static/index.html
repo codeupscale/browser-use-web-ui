@@ -230,7 +230,7 @@ async function submitTest() {
     const vncUrl = "http://localhost:6080/vnc.html?autoconnect=true&resize=scale&password=youvncpassword&quality=6&compression=6&clipViewport=true&scaleViewport=true&reconnect=true&fullscreen=true&scale=1.0&fitMode=scale&viewOnly=false&showDotCursor=true&background=#000000";
     vncIframe.src = vncUrl;
     try {
-        const response = await fetch("/run-agent", {
+        const response = await fetch("/agent-api/run-agent/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ query, url }),
@@ -292,7 +292,7 @@ function clearForm() {
     // Keep the websocket/connection as is on clear.
 }
 function stopTest() {
-    fetch("/stop-agent", { method: "POST" })
+    fetch("/agent-api/stop-agent", { method: "POST" })
         .then(res => res.json())
         .then(data => {
             alert(data.status || "Stopped.");
