@@ -122,7 +122,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
@@ -197,3 +196,5 @@ workflow.env
 #ssh keys poublic and private 
 "eval \"$(ssh-agent -s)\""
 "eval \"$(ssh-agent -s)\".pub"
+config.bat
+node_modules

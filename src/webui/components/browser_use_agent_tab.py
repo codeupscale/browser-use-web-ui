@@ -4,9 +4,9 @@ import json
 import logging
 import os
 import uuid
+from models.models import AIModel
 from typing import Any, AsyncGenerator, Dict, Optional
 import os, time
-from src.browser.browser_recorder import BrowserRecorder
 from browser_use.agent.views import (
     ActionResult,
     AgentHistory,
@@ -107,6 +107,7 @@ async def run_agent_task(query: str, url: str, message_callback: Optional[Callab
         os.environ["DISPLAY"] = ":99"
 
     if message_callback:
+        
         await message_callback(f"🖥️ Using display: {os.environ['DISPLAY']}")
 
     print(f"🖥️ Using display: {os.getenv('DISPLAY')}")
@@ -132,8 +133,7 @@ async def run_agent_task(query: str, url: str, message_callback: Optional[Callab
     )
 
     playwright_browser = await browser._setup_builtin_browser(playwright)
-    recorder = BrowserRecorder()
-    browser_context = await recorder.setup_recording(playwright_browser)
+    # Recording per tab/context is handled by CustomBrowserContext
 
     context_config = BrowserContextConfig(
         save_downloads_path=os.path.join(output_dir, "downloads"),
@@ -147,7 +147,10 @@ async def run_agent_task(query: str, url: str, message_callback: Optional[Callab
         await message_callback("🌐 Maximizing browser window...")
 
     try:
-        page = await browser_context.new_page()
+        # Use the primary session page instead of creating/closing a helper tab,
+        # so the first navigation can be migrated and recorded as tab_001
+        session = await browser_context.get_session()
+        page = session.context.pages[0] if session.context.pages else await session.context.new_page()
         await page.set_viewport_size({"width": 1920, "height": 1080})
         await page.evaluate("""
             if (window.screen && window.screen.availWidth && window.screen.availHeight) {
@@ -167,7 +170,7 @@ async def run_agent_task(query: str, url: str, message_callback: Optional[Callab
                 window.resizeTo(screen.availWidth, screen.availHeight);
             }
         """)
-        await page.close()
+        # Do not close the page; the agent will navigate this page first
     except Exception as e:
         print(f"⚠️ Could not maximize browser window: {e}")
 
@@ -179,9 +182,10 @@ async def run_agent_task(query: str, url: str, message_callback: Optional[Callab
 
     llm = await _initialize_llm(
         provider="openai",
-        model_name="gpt-4o",
+        model_name=AIModel.GPT_4O.value,
         temperature=0.6,
-        api_key=os.getenv("OPENAI_API_KEY")
+        api_key=os.getenv("OPENAI_API_KEY"),
+         message_callback=message_callback
     )
     
     # 4. Step handler with WebSocket message sending
@@ -194,8 +198,6 @@ async def run_agent_task(query: str, url: str, message_callback: Optional[Callab
         memory = getattr(output.current_state, "memory", "")
         next_goal = getattr(output.current_state, "next_goal", "")
         actions = output.actions_taken if hasattr(output, "actions_taken") else []
-
-        # Send to frontend via WebSocket
         if message_callback:
             await message_callback("----------------------------")
             await message_callback(f"🤖 Step {step_num}: Running step...")
@@ -267,10 +269,11 @@ async def run_agent_task(query: str, url: str, message_callback: Optional[Callab
     else:
         print("⚠️ No result found.")
 
-    try:
-        await recorder.save_recording()
-    except Exception as e:
-        logger.warning(f"Could not save recording: {e}")
+
+    # if message_callback:
+    #     await message_callback("📦 Processing final result...")
+
+    # Recordings are saved/closed by CustomBrowserContext.close()
 
     await browser_context.close()
     await browser.close()
@@ -302,10 +305,14 @@ async def _initialize_llm(
         provider: str,
         model_name: str,
         temperature: float,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        message_callback: Optional[Callable[[str], Awaitable[None]]] = None
 ) -> BaseChatModel:
     """Initialize LLM instance"""
     logger.info(f"Initializing LLM: {provider}/{model_name}")
+    if message_callback:
+        await message_callback(f"Initializing LLM: {provider}/{model_name}")  # Send to WebSocket
+
     return llm_provider.get_llm_model(
         provider=provider,
         model_name=model_name,
